@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+
+# Kotlin / Java
+out/
+*.class
+
+# VS Code
+.vscode/
+
+# IntelliJ
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coco/R generated files are kept in source for now
+# src/main/java/syntactic_analysis/Parser.java
+# src/main/java/syntactic_analysis/Scanner.java

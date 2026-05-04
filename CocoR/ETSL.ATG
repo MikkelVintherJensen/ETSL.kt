@@ -1,0 +1,39 @@
+COMPILER ETSL
+
+public abstract_syntax.Expr result;
+
+public abstract_syntax.Expr getResult() {
+    return result;
+}
+
+CHARACTERS
+  digit = "0123456789".
+
+TOKENS
+  number = digit { digit }.
+
+IGNORE '\t' + '\n' + '\r' + ' '
+
+PRODUCTIONS
+  ETSL
+  =
+    Expr<out result>
+  .
+
+  Expr<out abstract_syntax.Expr result>
+  =
+    Term<out result>
+    {
+      "+"
+      Term<out abstract_syntax.Expr right>
+      (. result = new abstract_syntax.AddExpr(result, right); .)
+    }
+  .
+
+  Term<out abstract_syntax.Expr result>
+  =
+    number
+    (. result = new abstract_syntax.NumExpr(Integer.parseInt(t.val)); .)
+  .
+
+END ETSL.
