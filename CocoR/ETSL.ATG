@@ -1,39 +1,139 @@
 COMPILER ETSL
 
-public abstract_syntax.Expr result;
+public abstract_syntax.Program program;
 
-public abstract_syntax.Expr getResult() {
-    return result;
+public abstract_syntax.Program getProgram() {
+    return program;
 }
 
 CHARACTERS
-  digit = "0123456789".
+  letter   = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+  digit    = "0123456789".
+  cr       = '\r'.
+  lf       = '\n'.
+  tab      = '\t'.
+  stringCh = ANY - '"' - cr - lf.
 
 TOKENS
-  number = digit { digit }.
+  id     = letter { letter | digit | "_" }.
+  num    = digit { digit } [ "." { digit } ].
+  string = '"' { stringCh } '"'.
 
-IGNORE '\t' + '\n' + '\r' + ' '
+IGNORE cr + lf + tab
 
 PRODUCTIONS
-  ETSL
-  =
-    Expr<out result>
-  .
 
-  Expr<out abstract_syntax.Expr result>
-  =
-    Term<out result>
-    {
-      "+"
-      Term<out abstract_syntax.Expr right>
-      (. result = new abstract_syntax.AddExpr(result, right); .)
-    }
-  .
+ETSL
+= Decls<out program>
+.
 
-  Term<out abstract_syntax.Expr result>
-  =
-    number
-    (. result = new abstract_syntax.NumExpr(Integer.parseInt(t.val)); .)
-  .
+Decls<out abstract_syntax.Program prog> (. prog = null; java.util.List<abstract_syntax.Decl> list = new java.util.ArrayList<>(); abstract_syntax.Decl d; .)
+= { Decl <out d> (. list.add(d); .) }
+  (. prog = new abstract_syntax.Program(list); .)
+.
+
+Decl <out abstract_syntax.Decl node> (. node = null; abstract_syntax.Type type = null; .)
+= Type <out type>
+  ( "function"
+    (. String name = ""; java.util.List<abstract_syntax.FuncDecl.Param> params = null; abstract_syntax.Expr body = null; .)
+    id (. name = t.val; .)
+    "(" [ ParamList <out params > ] ")"
+    ":="
+    Exp <out body>
+    ";" (. node = new abstract_syntax.FuncDecl(type, name, params != null ? params : new java.util.ArrayList<>(), body); .)
+  |
+    (. String name = ""; abstract_syntax.Expr value = null; .)
+    id (. name = t.val; .)
+    ":="
+    Exp <out value>
+    ";" (. node = new abstract_syntax.VarDecl(type, name, value); .)
+  )
+.
+
+ParamList <out java.util.List<abstract_syntax.FuncDecl.Param> list> (. list = new java.util.ArrayList<>(); abstract_syntax.FuncDecl.Param p; .)
+= Param <out p> (. list.add(p); .) 
+  { "," Param <out p> (. list.add(p); .) }
+.
+
+Param <out abstract_syntax.FuncDecl.Param p> (. p = null; abstract_syntax.Type type = null; String name = ""; .)
+= Type <out type> id (. name = t.val; p = new abstract_syntax.FuncDecl.Param(type, name); .)
+.
+
+Type <out abstract_syntax.Type t> (. t = null; .)
+= "num"    (. t = abstract_syntax.Type.NUM; .) 
+| "bool"   (. t = abstract_syntax.Type.BOOL; .) 
+| "string" (. t = abstract_syntax.Type.STRING; .)
+.
+
+Exp <out abstract_syntax.Expr node> 
+= ExpOr <out node>.
+
+ExpOr <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; .)
+= ExpAnd <out node> 
+  { "||" ExpAnd <out right> (. node = new abstract_syntax.OrExpr(node, right); .) }
+.
+
+ExpAnd <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; .)
+= ExpEq <out node> 
+  { "&&" ExpEq <out right> (. node = new abstract_syntax.AndExpr(node, right); .) }
+.
+
+ExpEq <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpRel <out node> 
+  { ( "=" | "!=" ) (. op = t.val; .) 
+    ExpRel <out right> (. if (op.equals("=")) node = new abstract_syntax.EqExpr(node, right); else node = new abstract_syntax.NeqExpr(node, right); .) 
+  }
+.
+
+ExpRel <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpAdd <out node> 
+  { ( "<" | "<=" | ">" | ">=" ) (. op = t.val; .) 
+    ExpAdd <out right> (. if (op.equals("<")) node = new abstract_syntax.LtExpr(node, right);
+                          else if (op.equals("<=")) node = new abstract_syntax.LeExpr(node, right);
+                          else if (op.equals(">")) node = new abstract_syntax.GtExpr(node, right);
+                          else node = new abstract_syntax.GeExpr(node, right); .) 
+  }
+.
+
+ExpAdd <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpMul <out node> 
+  { ( "+" | "-" ) (. op = t.val; .) 
+    ExpMul <out right> (. if (op.equals("+")) node = new abstract_syntax.AddExpr(node, right); else node = new abstract_syntax.SubExpr(node, right); .) 
+  }
+.
+
+ExpMul <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpUnary <out node> 
+  { ( "*" | "/" ) (. op = t.val; .) 
+    ExpUnary <out right> (. if (op.equals("*")) node = new abstract_syntax.MulExpr(node, right); else node = new abstract_syntax.DivExpr(node, right); .) 
+  }
+.
+
+ExpUnary <out abstract_syntax.Expr node> (. node = null; .)
+= "!" ExpUnary <out node> (. node = new abstract_syntax.NegExpr(node); .) 
+| "-" ExpUnary <out node> (. node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0), node); .)
+| Term <out node>
+.
+
+Term <out abstract_syntax.Expr node> (. node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; .)
+= num    (. if (t.val.contains(".")) node = new abstract_syntax.NumExpr(Integer.parseInt(t.val.split("\\.")[0])); else node = new abstract_syntax.NumExpr(Integer.parseInt(t.val)); .)
+| "true" (. node = new abstract_syntax.BoolExpr(true); .)
+| "false"(. node = new abstract_syntax.BoolExpr(false); .)
+| string (. String s = t.val; node = new abstract_syntax.StringExpr(s.substring(1, s.length() - 1)); .)
+| id     (. name = t.val; .)
+  ( "(" 
+    (. args = new java.util.ArrayList<>(); .)
+    [ Exp <out arg> (. args.add(arg); .) 
+      { "," Exp <out arg> (. args.add(arg); .) } 
+    ] 
+    ")" (. node = new abstract_syntax.CallExpr(name, args); .)
+  |       (. node = new abstract_syntax.VarExpr(name); .)
+  )
+| "(" Exp <out node> ")"
+| "if" Exp <out cond> "then" Exp <out thenExpr> "else" Exp <out node>
+          (. node = new abstract_syntax.IfExpr(cond, thenExpr, node); .)
+| "let" Type <out letType> id (. letName = t.val; .) ":=" Exp <out letVal> "in" Exp <out node>
+          (. node = new abstract_syntax.LetExpr(letType, letName, letVal, node); .)
+.
 
 END ETSL.

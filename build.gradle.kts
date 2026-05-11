@@ -1,5 +1,4 @@
 plugins {
-    kotlin("jvm") version "2.3.20"
     application
 }
 
@@ -8,25 +7,18 @@ version = "0.1.0"
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(24))
+        languageVersion.set(JavaLanguageVersion.of(26))
     }
 }
 
-kotlin {
-    jvmToolchain(24)
-}
-
 application {
-    mainClass.set("syntactic_analysis.MainKt")
+    mainClass.set("syntactic_analysis.Main")
 }
 
 sourceSets {
     main {
         java {
             srcDir("src/main/java")
-        }
-        kotlin {
-            srcDir("src/main/kotlin")
         }
     }
 }
@@ -55,16 +47,12 @@ tasks.named("compileJava") {
     dependsOn("generateParser")
 }
 
-tasks.named("compileKotlin") {
-    dependsOn("generateParser")
-}
-
 tasks.register<JavaExec>("runExample") {
     group = "application"
     description = "Run interpreter on Examples/hello.etsl"
 
     dependsOn("classes")
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("syntactic_analysis.MainKt")
+    mainClass.set("syntactic_analysis.Main")
     args("Examples/hello.etsl")
 }

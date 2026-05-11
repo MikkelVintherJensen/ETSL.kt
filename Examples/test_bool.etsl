@@ -1,0 +1,2 @@
+bool b := true && !false;
+bool c := 5 > 3;
