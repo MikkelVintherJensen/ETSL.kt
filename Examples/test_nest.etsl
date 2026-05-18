@@ -1,0 +1,3 @@
+num function square(num x) := x * x;
+num sq := square(7);
+num nested := square(square(3));
