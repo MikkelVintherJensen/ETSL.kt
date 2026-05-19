@@ -8,6 +8,10 @@ public class TypeChecker {
     private final Map<String, FuncDecl> functions = new HashMap<>();
     private final List<String> errors = new ArrayList<>();
 
+
+    private final Map<String, EventDecl> events = new HashMap<>();
+    private final Map<String, AgentDecl> agents = new HashMap<>();
+
     public boolean check(Program program) {
         // Register all function declarations
         for (Decl decl : program.declarations) {

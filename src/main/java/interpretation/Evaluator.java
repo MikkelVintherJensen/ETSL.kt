@@ -6,34 +6,143 @@ import java.util.*;
 public class Evaluator {
     private final Map<String, Object> env = new HashMap<>();
     private final Map<String, FuncDecl> functions = new HashMap<>();
-
-    public Object evaluate(Program program) {
-        // Register all functions
+    private final Map<String, AgentDecl> agents = new HashMap<>();
+    private final Map<String, List<String>> eventToAgents = new HashMap<>();
+    private final List<LogEntry> globalLog = new ArrayList<>();
+    
+    public Object evaluate(Program program, List<EventInstance> initialEvents) {
+        // Register all functions and agents
         for (Decl decl : program.declarations) {
             if (decl instanceof FuncDecl func) {
                 functions.put(func.name, func);
+            } else if (decl instanceof AgentDecl agent) {
+                agents.put(agent.name, agent);
+                for (String eventName : agent.listensTo) {
+                    eventToAgents.computeIfAbsent(eventName, k -> new ArrayList<>())
+                                 .add(agent.name);
+                }
+            } else if (decl instanceof VarDecl var) {
+                Object value = eval(var.value);
+                env.put(var.name, value);
             }
         }
-        // Evaluate declarations in order
+        
+        // Process events
+        for (EventInstance event : initialEvents) {
+            processEvent(event);
+        }
+        
+        // Print log
+        System.out.println("=== Execution Log ===");
+        for (LogEntry entry : globalLog) {
+            System.out.println(entry);
+        }
+        
+        // Return last variable value (for backward compatibility)
         Object lastResult = null;
         for (Decl decl : program.declarations) {
-            lastResult = evaluateDecl(decl);
+            if (decl instanceof VarDecl var && env.containsKey(var.name)) {
+                lastResult = env.get(var.name);
+            }
         }
         return lastResult;
     }
-
-    private Object evaluateDecl(Decl decl) {
-        if (decl instanceof VarDecl varDecl) {
-            Object value = eval(varDecl.value);
-            env.put(varDecl.name, value);
-            return value;
-        } else if (decl instanceof FuncDecl funcDecl) {
-            // Functions are already registered, nothing to evaluate at declaration
-            return null;
+    
+    private void processEvent(EventInstance event) {
+        List<String> listeningAgents = eventToAgents.get(event.name);
+        if (listeningAgents == null) {
+            System.out.println("No agents listening to event: " + event.name);
+            return;
         }
-        return null;
+        
+        System.out.println("Processing event: " + event.name + " with values: " + event.values);
+        
+        for (String agentName : listeningAgents) {
+            AgentDecl agent = agents.get(agentName);
+            if (agent == null) continue;
+            
+            // Save current environment
+            Map<String, Object> savedEnv = new HashMap<>(env);
+            
+            // Bind event values to agent parameters
+            for (int i = 0; i < agent.params.size() && i < event.values.size(); i++) {
+                env.put(agent.params.get(i).name, event.values.get(i));
+            }
+            
+            System.out.println("  Executing agent: " + agentName);
+            
+            // Execute agent action
+            executeAction(agent.body, agentName);
+            
+            // Restore environment
+            env.clear();
+            env.putAll(savedEnv);
+        }
     }
-
+    
+    private void executeAction(Action action, String currentAgent) {
+        if (action == null) return;
+        
+        if (action instanceof LogAction logAction) {
+            Map<String, Object> logData = new LinkedHashMap<>();
+            for (String varName : logAction.variables) {
+                Object val = env.get(varName);
+                if (val == null) {
+                    logData.put(varName, "null");
+                } else {
+                    logData.put(varName, val);
+                }
+            }
+            LogEntry entry = new LogEntry(currentAgent, logData);
+            globalLog.add(entry);
+            System.out.println("    Log: " + entry);
+            executeAction(logAction.next, currentAgent);
+            
+        } else if (action instanceof CallAgentAction callAction) {
+            // Evaluate arguments
+            List<Object> argValues = new ArrayList<>();
+            for (Expr arg : callAction.args) {
+                argValues.add(eval(arg));
+            }
+            
+            // Find target agent
+            AgentDecl target = agents.get(callAction.agentName);
+            if (target == null) {
+                System.err.println("Agent " + callAction.agentName + " not found");
+                return;
+            }
+            
+            // Save current environment
+            Map<String, Object> savedEnv = new HashMap<>(env);
+            
+            // Bind arguments to target agent parameters
+            for (int i = 0; i < target.params.size() && i < argValues.size(); i++) {
+                env.put(target.params.get(i).name, argValues.get(i));
+            }
+            
+            System.out.println("    Calling agent: " + callAction.agentName);
+            
+            // Execute target agent body
+            executeAction(target.body, target.name);
+            
+            // Restore environment
+            env.clear();
+            env.putAll(savedEnv);
+            
+            executeAction(callAction.next, currentAgent);
+            
+        } else if (action instanceof SkipAction skipAction) {
+            executeAction(skipAction.next, currentAgent);
+            
+        } else if (action instanceof LetAction letAction) {
+            Object value = eval(letAction.value);
+            env.put(letAction.name, value);
+            executeAction(letAction.body, currentAgent);
+            env.remove(letAction.name);
+            executeAction(letAction.next, currentAgent);
+        }
+    }
+    
     private Object eval(Expr expr) {
         if (expr instanceof NumExpr numExpr) {
             return numExpr.value;
@@ -44,7 +153,6 @@ public class Evaluator {
         } else if (expr instanceof VarExpr varExpr) {
             Object val = env.get(varExpr.name);
             if (val == null) {
-                // Check if it's a function name (zero-arg call)
                 FuncDecl func = functions.get(varExpr.name);
                 if (func != null && func.params.isEmpty()) {
                     return callFunction(func, List.of());
@@ -131,13 +239,13 @@ public class Evaluator {
         }
         throw new RuntimeException("Unknown expression: " + expr.getClass().getSimpleName());
     }
-
+    
     private Object callFunction(FuncDecl func, List<Object> args) {
         Map<String, Object> savedEnv = new HashMap<>(env);
         for (int i = 0; i < func.params.size(); i++) {
             env.put(func.params.get(i).name, args.get(i));
         }
-        env.put(func.name, func); // For recursion
+        env.put(func.name, func);
         Object result = eval(func.body);
         env.clear();
         env.putAll(savedEnv);

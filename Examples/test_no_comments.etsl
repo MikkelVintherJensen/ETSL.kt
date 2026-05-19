@@ -1,0 +1,31 @@
+num n1 := 42;
+bool b1 := true;
+bool b2 := false;
+string s1 := "hello";
+num add := 10 + 5;
+num sub := 10 - 5;
+num mul := 10 * 5;
+num div := 10 / 5;
+num prec1 := 10 + 5 * 2;
+num prec2 := 10 - 5 * 2;
+num prec3 := 10 * 5 + 2;
+num prec4 := 10 / 5 + 2;
+num paren1 := (10 + 5) * 2;
+num paren2 := (10 - 5) * (2 + 3);
+bool lt := 5 < 10;
+bool gt := 10 > 5;
+num function square(num x) := x * x;
+num sq := square(7);
+
+event PriceUpdate(num price);
+event TradeEvent(num price, num volume, string symbol);
+
+agent PriceLogger(num price) on (PriceUpdate) :=
+    log(price)
+;
+
+agent TradeLogger(num price, num volume, string symbol) on (TradeEvent) :=
+    log(price, volume, symbol)
+;
+
+num dummy := 0;
