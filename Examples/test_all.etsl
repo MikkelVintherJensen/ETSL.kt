@@ -44,8 +44,6 @@ agent MegaEventLogger(num a, num b, num c, num d, num e, string f, string g, boo
 
 agent EmptyEventLogger() on (MarketTick, Heartbeat, SystemStatus) := log();
 
-agent MultiEventLogger(num price, num volume) on (PriceUpdate, VolumeUpdate) := log(price, volume);
-
 agent XLogger() on (x) := log();
 
 agent YLogger(num value) on (y) := log(value);

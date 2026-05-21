@@ -1,28 +1,103 @@
 package interpretation;
 
-import abstract_syntax.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import abstract_syntax.Action;
+import abstract_syntax.AddExpr;
+import abstract_syntax.AgentDecl;
+import abstract_syntax.AndExpr;
+import abstract_syntax.BoolExpr;
+import abstract_syntax.CallAgentAction;
+import abstract_syntax.CallExpr;
+import abstract_syntax.Decl;
+import abstract_syntax.DivExpr;
+import abstract_syntax.EqExpr;
+import abstract_syntax.EventDecl;
+import abstract_syntax.Expr;
+import abstract_syntax.FuncDecl;
+import abstract_syntax.GeExpr;
+import abstract_syntax.GtExpr;
+import abstract_syntax.IfExpr;
+import abstract_syntax.LeExpr;
+import abstract_syntax.LetAction;
+import abstract_syntax.LetExpr;
+import abstract_syntax.LogAction;
+import abstract_syntax.LtExpr;
+import abstract_syntax.MulExpr;
+import abstract_syntax.NegExpr;
+import abstract_syntax.NeqExpr;
+import abstract_syntax.NumExpr;
+import abstract_syntax.OrExpr;
+import abstract_syntax.Program;
+import abstract_syntax.SkipAction;
+import abstract_syntax.StringExpr;
+import abstract_syntax.SubExpr;
+import abstract_syntax.Type;
+import abstract_syntax.VarDecl;
+import abstract_syntax.VarExpr;
 
 public class TypeChecker {
     private final Map<String, Type> varTypes = new HashMap<>();
     private final Map<String, FuncDecl> functions = new HashMap<>();
     private final List<String> errors = new ArrayList<>();
 
-
     private final Map<String, EventDecl> events = new HashMap<>();
     private final Map<String, AgentDecl> agents = new HashMap<>();
+    private final Map<String, List<String>> eventToAgents = new HashMap<>();
 
     public boolean check(Program program) {
-        // Register all function declarations
+        // First pass: collect all events
+        for (Decl decl : program.declarations) {
+            if (decl instanceof EventDecl event) {
+                events.put(event.name, event);
+            }
+        }
+
+        // Second pass: collect all agents and build event-to-agent mapping
+        for (Decl decl : program.declarations) {
+            if (decl instanceof AgentDecl agent) {
+                agents.put(agent.name, agent);
+                for (String eventName : agent.listensTo) {
+                    eventToAgents.computeIfAbsent(eventName, k -> new ArrayList<>()).add(agent.name);
+                }
+            }
+        }
+
+        // Third pass: register all function declarations
         for (Decl decl : program.declarations) {
             if (decl instanceof FuncDecl func) {
                 functions.put(func.name, func);
             }
         }
-        // Check each declaration
+
+        // Fourth pass: check each declaration
         for (Decl decl : program.declarations) {
             checkDecl(decl);
         }
+
+        // Fifth pass: validate event-agent connections
+        for (AgentDecl agent : agents.values()) {
+            for (String eventName : agent.listensTo) {
+                EventDecl event = events.get(eventName);
+                if (event == null) {
+                    error("Agent " + agent.name + " listens to undeclared event: " + eventName);
+                } else if (event.params.size() != agent.params.size()) {
+                    error("Agent " + agent.name + " parameter count (" + agent.params.size() + 
+                          ") does not match event " + eventName + " (" + event.params.size() + ")");
+                } else {
+                    for (int i = 0; i < event.params.size(); i++) {
+                        if (event.params.get(i).type != agent.params.get(i).type) {
+                            error("Agent " + agent.name + " parameter " + i + " type mismatch: " +
+                                  agent.params.get(i).type + " vs event " + event.params.get(i).type);
+                        }
+                    }
+                }
+            }
+        }
+
         for (String error : errors) {
             System.err.println("TYPE ERROR: " + error);
         }
@@ -58,6 +133,76 @@ public class TypeChecker {
             varTypes.clear();
             varTypes.putAll(savedVarTypes);
             varTypes.put(funcDecl.name, funcDecl.returnType);
+        } else if (decl instanceof AgentDecl agentDecl) {
+            // Create local scope with agent parameters
+            Map<String, Type> savedVarTypes = new HashMap<>(varTypes);
+            for (AgentDecl.Param param : agentDecl.params) {
+                varTypes.put(param.name, param.type);
+            }
+            // Check the action body
+            checkAction(agentDecl.body, varTypes);
+            // Restore scope
+            varTypes.clear();
+            varTypes.putAll(savedVarTypes);
+        } else if (decl instanceof EventDecl eventDecl) {
+            // Events are already collected, nothing to type check
+            // Parameter types are validated when checking agents that listen to this event
+        }
+    }
+
+    private void checkAction(Action action, Map<String, Type> scope) {
+        if (action == null) return;
+        
+        if (action instanceof LogAction logAction) {
+            // Validate all logged variables are in scope
+            for (String varName : logAction.variables) {
+                if (!scope.containsKey(varName) && !varTypes.containsKey(varName)) {
+                    error("Log variable '" + varName + "' not in scope");
+                }
+            }
+            checkAction(logAction.next, scope);
+            
+        } else if (action instanceof CallAgentAction callAction) {
+            // Validate target agent exists
+            AgentDecl target = agents.get(callAction.agentName);
+            if (target == null) {
+                error("Call to undeclared agent: " + callAction.agentName);
+            } else {
+                // Validate argument count matches target agent parameters
+                if (target.params.size() != callAction.args.size()) {
+                    error("Agent call " + callAction.agentName + " expects " + target.params.size() +
+                          " arguments, got " + callAction.args.size());
+                } else {
+                    // Validate argument types match target agent parameter types
+                    for (int i = 0; i < target.params.size(); i++) {
+                        Type argType = typeOf(callAction.args.get(i));
+                        if (target.params.get(i).type != argType) {
+                            error("Agent call " + callAction.agentName + " argument " + i + 
+                                  " type mismatch: expected " + target.params.get(i).type + 
+                                  ", got " + argType);
+                        }
+                    }
+                }
+            }
+            checkAction(callAction.next, scope);
+            
+        } else if (action instanceof SkipAction skipAction) {
+            checkAction(skipAction.next, scope);
+            
+        } else if (action instanceof LetAction letAction) {
+            // Validate the expression type matches declared type
+            Type valType = typeOf(letAction.value);
+            if (valType != letAction.type) {
+                error("Let binding " + letAction.name + " declared as " + letAction.type +
+                      " but assigned " + valType);
+            }
+            // Create new scope with the let-bound variable
+            Map<String, Type> newScope = new HashMap<>(scope);
+            newScope.put(letAction.name, letAction.type);
+            // Check the body of the let action
+            checkAction(letAction.body, newScope);
+            // Check the next action with the original scope (variable not visible after)
+            checkAction(letAction.next, scope);
         }
     }
 
