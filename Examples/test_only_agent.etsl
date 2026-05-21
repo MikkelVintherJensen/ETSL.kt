@@ -1,0 +1,3 @@
+agent PriceLogger(num price) on (PriceUpdate) := log(price);
+
+
