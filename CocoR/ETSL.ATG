@@ -16,7 +16,7 @@ CHARACTERS
 
 TOKENS
   id     = letter { letter | digit | "_" }.
-  num    = digit { digit } [ "." { digit } ].
+  num    = digit { digit } [ "." digit { digit } ].
   string = '"' { stringCh } '"'.
 
 IGNORE cr + lf + tab
@@ -111,12 +111,12 @@ ExpMul <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op;
 
 ExpUnary <out abstract_syntax.Expr node> (. node = null; .)
 = "!" ExpUnary <out node> (. node = new abstract_syntax.NegExpr(node); .) 
-| "-" ExpUnary <out node> (. node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0), node); .)
+| "-" ExpUnary <out node> (. node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0.0), node); .)
 | Term <out node>
 .
 
 Term <out abstract_syntax.Expr node> (. node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; .)
-= num    (. if (t.val.contains(".")) node = new abstract_syntax.NumExpr(Integer.parseInt(t.val.split("\\.")[0])); else node = new abstract_syntax.NumExpr(Integer.parseInt(t.val)); .)
+= num    (. node = new abstract_syntax.NumExpr(Double.parseDouble(t.val)); .)
 | "true" (. node = new abstract_syntax.BoolExpr(true); .)
 | "false"(. node = new abstract_syntax.BoolExpr(false); .)
 | string (. String s = t.val; node = new abstract_syntax.StringExpr(s.substring(1, s.length() - 1)); .)

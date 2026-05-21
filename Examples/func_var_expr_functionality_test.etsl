@@ -1,0 +1,46 @@
+num priceForecast := 82.5;
+num actualPrice := 96.0;
+num volumeMWh := 12.0;
+num imbalanceThreshold := 10.0;
+num highPriceThreshold := 90.0;
+
+num function abs(num x) :=
+    if x < 0.0 then 0.0 - x else x;
+
+num function priceDeviation(num forecast, num actual) :=
+    abs(actual - forecast);
+
+bool function isLargeDeviation(num forecast, num actual, num threshold) :=
+    priceDeviation(forecast, actual) > threshold;
+
+bool function isHighPrice(num price, num threshold) :=
+    price > threshold;
+
+num function imbalanceCost(num forecast, num actual, num volume) :=
+    let num deviation := priceDeviation(forecast, actual) in
+        deviation * volume;
+
+num function riskScore(num forecast, num actual, num volume) :=
+    let num deviation := priceDeviation(forecast, actual) in
+        let num cost := deviation * volume in
+            if cost > 150.0 then 3.0
+            else if cost > 75.0 then 2.0
+            else 1.0;
+
+string function tradingSignal(
+    num forecast,
+    num actual,
+    num volume,
+    num deviationThreshold,
+    num priceThreshold
+) :=
+    if isLargeDeviation(forecast, actual, deviationThreshold) && isHighPrice(actual, priceThreshold)
+    then "REDUCE_POSITION"
+    else if isLargeDeviation(forecast, actual, deviationThreshold)
+    then "REVIEW_POSITION"
+    else "HOLD";
+
+num deviation := priceDeviation(priceForecast, actualPrice);
+num cost := imbalanceCost(priceForecast, actualPrice, volumeMWh);
+num risk := riskScore(priceForecast, actualPrice, volumeMWh);
+string signal := tradingSignal(priceForecast, actualPrice, volumeMWh, imbalanceThreshold, highPriceThreshold);

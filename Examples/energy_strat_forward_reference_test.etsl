@@ -1,0 +1,33 @@
+num finalRiskScore := adjustedExposure + penaltyScore;
+
+num adjustedExposure := exposureMWh * priceRiskFactor;
+
+num penaltyScore :=
+    if deviationPercent > criticalDeviationThreshold
+    then 50.0
+    else if deviationPercent > warningDeviationThreshold
+    then 20.0
+    else 0.0;
+
+num deviationPercent := abs(actualProduction - forecastProduction) / forecastProduction * 100.0;
+
+num priceRiskFactor :=
+    if spotPrice > highPriceThreshold
+    then 2.0
+    else 1.0;
+
+num exposureMWh := abs(actualProduction - forecastProduction);
+
+num actualProduction := 88.0;
+num forecastProduction := 100.0;
+
+num spotPrice := 94.5;
+num highPriceThreshold := 90.0;
+
+num warningDeviationThreshold := 5.0;
+num criticalDeviationThreshold := 10.0;
+
+num function abs(num x) :=
+    if x < 0.0 then 0.0 - x else x;
+
+num result := finalRiskScore;

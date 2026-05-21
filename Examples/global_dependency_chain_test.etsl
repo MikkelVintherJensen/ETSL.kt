@@ -1,0 +1,4 @@
+num a := b + 1.0;
+num b := c + 2.0;
+num c := 3.0;
+num result := a + b + c;

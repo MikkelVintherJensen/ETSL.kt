@@ -1,0 +1,2 @@
+num function f(num x) := x + 1;
+num y := let num x := 20 in f(x);

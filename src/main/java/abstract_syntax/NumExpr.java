@@ -1,9 +1,9 @@
 package abstract_syntax;
 
 public final class NumExpr implements Expr {
-    public final int value;
+    public final double value;
 
-    public NumExpr(int value) {
+    public NumExpr(double value) {
         this.value = value;
     }
 }

@@ -9,19 +9,38 @@ public class TypeChecker {
     private final List<String> errors = new ArrayList<>();
 
     public boolean check(Program program) {
-        // Register all function declarations
+        // Pass 1: register all function declarations
         for (Decl decl : program.declarations) {
             if (decl instanceof FuncDecl func) {
-                functions.put(func.name, func);
+                if (functions.containsKey(func.name)) {
+                    error("Function " + func.name + " already declared");
+                } else {
+                    functions.put(func.name, func);
+                }
             }
         }
-        // Check each declaration
+
+        // Pass 2: register all global variable declared types
+        // This allows global variable forward references during type checking.
+        for (Decl decl : program.declarations) {
+            if (decl instanceof VarDecl var) {
+                if (varTypes.containsKey(var.name)) {
+                    error("Variable " + var.name + " already declared");
+                } else {
+                    varTypes.put(var.name, var.type);
+                }
+            }
+        }
+
+        // Pass 3: check each declaration
         for (Decl decl : program.declarations) {
             checkDecl(decl);
         }
+
         for (String error : errors) {
             System.err.println("TYPE ERROR: " + error);
         }
+
         return errors.isEmpty();
     }
 
@@ -32,29 +51,34 @@ public class TypeChecker {
     private void checkDecl(Decl decl) {
         if (decl instanceof VarDecl varDecl) {
             Type exprType = typeOf(varDecl.value);
+
             if (exprType != varDecl.type) {
                 error("Variable " + varDecl.name + " declared as " + varDecl.type + " but assigned " + exprType);
             }
-            varTypes.put(varDecl.name, varDecl.type);
         } else if (decl instanceof FuncDecl funcDecl) {
-            // Create local scope with parameters
-            Map<String, Type> savedVarTypes = new HashMap<>(varTypes);
-            for (FuncDecl.Param param : funcDecl.params) {
-                varTypes.put(param.name, param.type);
+        // Function bodies are checked in a fresh variable scope.
+        // Only parameters, and variables introduced by let-expressions inside the body,
+        // are visible. Global variables are not implicitly available inside functions.
+        Map<String, Type> savedVarTypes = new HashMap<>(varTypes);
+
+        varTypes.clear();
+
+        for (FuncDecl.Param param : funcDecl.params) {
+            if (varTypes.containsKey(param.name)) {
+                error("Duplicate parameter " + param.name + " in function " + funcDecl.name);
             }
-            // Add function to scope for recursion
-            varTypes.put(funcDecl.name, funcDecl.returnType);
-            
-            Type bodyType = typeOf(funcDecl.body);
-            
-            if (bodyType != funcDecl.returnType) {
-                error("Function " + funcDecl.name + " declared to return " + funcDecl.returnType + " but body has type " + bodyType);
-            }
-            // Restore scope
-            varTypes.clear();
-            varTypes.putAll(savedVarTypes);
-            varTypes.put(funcDecl.name, funcDecl.returnType);
+            varTypes.put(param.name, param.type);
         }
+
+        Type bodyType = typeOf(funcDecl.body);
+
+        if (bodyType != funcDecl.returnType) {
+            error("Function " + funcDecl.name + " declared to return " + funcDecl.returnType + " but body has type " + bodyType);
+        }
+
+        varTypes.clear();
+        varTypes.putAll(savedVarTypes);
+    }
     }
 
     private Type typeOf(Expr expr) {
