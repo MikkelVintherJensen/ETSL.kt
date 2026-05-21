@@ -42,6 +42,7 @@ import abstract_syntax.StringExpr;
 import abstract_syntax.SubExpr;
 import abstract_syntax.VarDecl;
 import abstract_syntax.VarExpr;
+import abstract_syntax.Type;
 
 public class Evaluator {
     // Local/current variable environment: function params, event params, let bindings
@@ -119,6 +120,62 @@ public class Evaluator {
         return lastResult;
     }
 
+    private void validateEventInstance(EventInstance event) {
+        EventDecl decl = envE.get(event.name);
+
+        if (decl == null) {
+            throw new RuntimeException("Runtime event error: Event " + event.name + " is not declared");
+        }
+
+        if (decl.params.size() != event.values.size()) {
+            throw new RuntimeException(
+                "Runtime event error: Event " + event.name + " expects "
+                + decl.params.size() + " values, got " + event.values.size()
+            );
+        }
+
+        for (int i = 0; i < decl.params.size(); i++) {
+            Type expected = decl.params.get(i).type;
+            Object value = event.values.get(i);
+
+            if (!matchesType(expected, value)) {
+                throw new RuntimeException(
+                    "Runtime event error: Event " + event.name
+                    + " parameter " + i + " (" + decl.params.get(i).name + ") expects "
+                    + expected + ", got " + runtimeTypeName(value)
+                );
+            }
+        }
+    }
+
+    private boolean matchesType(Type expected, Object value) {
+        return switch (expected) {
+            case NUM -> value instanceof Double;
+            case BOOL -> value instanceof Boolean;
+            case STRING -> value instanceof String;
+        };
+    }
+
+    private String runtimeTypeName(Object value) {
+        if (value instanceof Double) {
+            return "NUM";
+        }
+
+        if (value instanceof Boolean) {
+            return "BOOL";
+        }
+
+        if (value instanceof String) {
+            return "STRING";
+        }
+
+        if (value == null) {
+            return "NULL";
+        }
+
+        return value.getClass().getSimpleName();
+    }
+
     private Object evalGlobal(String name) {
         if (globalValues.containsKey(name)) {
             return globalValues.get(name);
@@ -164,6 +221,8 @@ public class Evaluator {
     }
 
     private void processEvent(EventInstance event) {
+        validateEventInstance(event);
+
         List<String> listeningAgents = envR.get(event.name);
 
         if (listeningAgents == null) {

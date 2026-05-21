@@ -59,7 +59,7 @@ Decl <out abstract_syntax.Decl node> (. node = null; abstract_syntax.Type type =
   "(" [ AgentParamList <out params> ] ")"
   "on" "(" [ IdList <out events> ] ")"
   ":=" Action <out act>
-  ";" (. node = new abstract_syntax.AgentDecl(name, params != null ? params : new java.util.ArrayList<>(), events != null ? events : new java.util.ArrayList<>(), act); .)
+  (. node = new abstract_syntax.AgentDecl(name, params != null ? params : new java.util.ArrayList<>(), events != null ? events : new java.util.ArrayList<>(), act); .)
 .
 
 ParamList <out java.util.List<abstract_syntax.FuncDecl.Param> list> (. list = new java.util.ArrayList<>(); abstract_syntax.FuncDecl.Param p; .)
@@ -94,11 +94,32 @@ IdList <out java.util.List<String> list> (. list = new java.util.ArrayList<>(); 
   { "," id (. list.add(t.val); .) }
 .
 
-Action <out abstract_syntax.Action act> (. act = null; java.util.List<String> vars = null; String name = ""; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Type type = null; abstract_syntax.Expr value = null; abstract_syntax.Action body = null; .)
-= "log" "(" [ IdList <out vars> ] ")" (. act = new abstract_syntax.LogAction(vars != null ? vars : new java.util.ArrayList<>(), null); .)
-| "call" id (. name = t.val; .) "(" [ ExpList <out args> ] ")" (. act = new abstract_syntax.CallAgentAction(name, args != null ? args : new java.util.ArrayList<>(), null); .)
-| "skip" (. act = new abstract_syntax.SkipAction(null); .)
-| "let" Type <out type> id ":=" Exp <out value> "in" Action <out body> (. act = new abstract_syntax.LetAction(type, t.val, value, body, null); .)
+Action <out abstract_syntax.Action act>
+(. 
+    act = null; 
+    abstract_syntax.Action next = null;
+    java.util.List<String> vars = null; 
+    String name = ""; 
+    java.util.List<abstract_syntax.Expr> args = null; 
+    abstract_syntax.Type type = null; 
+    abstract_syntax.Expr value = null; 
+    abstract_syntax.Action body = null; 
+.)
+= "log" "(" [ IdList <out vars> ] ")" ";"
+  [ Action <out next> ]
+  (. act = new abstract_syntax.LogAction(vars != null ? vars : new java.util.ArrayList<>(), next); .)
+
+| "call" id (. name = t.val; .) "(" [ ExpList <out args> ] ")" ";"
+  [ Action <out next> ]
+  (. act = new abstract_syntax.CallAgentAction(name, args != null ? args : new java.util.ArrayList<>(), next); .)
+
+| "skip" ";"
+  [ Action <out next> ]
+  (. act = new abstract_syntax.SkipAction(next); .)
+
+| "let" Type <out type> id (. name = t.val; .) ":=" Exp <out value> "in" Action <out body>
+  [ Action <out next> ]
+  (. act = new abstract_syntax.LetAction(type, name, value, body, next); .)
 .
 
 ExpList <out java.util.List<abstract_syntax.Expr> list> (. list = new java.util.ArrayList<>(); abstract_syntax.Expr e; .)

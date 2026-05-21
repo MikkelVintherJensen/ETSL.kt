@@ -21,11 +21,9 @@ event PriceUpdate(num price);
 event TradeEvent(num price, num volume, string symbol);
 
 agent PriceLogger(num price) on (PriceUpdate) :=
-    log(price)
-;
+    log(price);
 
 agent TradeLogger(num price, num volume, string symbol) on (TradeEvent) :=
-    log(price, volume, symbol)
-;
+    log(price, volume, symbol);
 
 num dummy := 0;

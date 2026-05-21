@@ -157,7 +157,6 @@ public abstract_syntax.Program getProgram() {
 			Expect(6);
 			Expect(7);
 			act = Action();
-			Expect(8);
 			node = new abstract_syntax.AgentDecl(name, params != null ? params : new java.util.ArrayList<>(), events != null ? events : new java.util.ArrayList<>(), act); 
 		} else SynErr(41);
 		return node;
@@ -239,7 +238,15 @@ public abstract_syntax.Program getProgram() {
 
 	abstract_syntax.Action  Action() {
 		abstract_syntax.Action  act;
-		act = null; java.util.List<String> vars = null; String name = ""; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Type type = null; abstract_syntax.Expr value = null; abstract_syntax.Action body = null; 
+		act = null; 
+		abstract_syntax.Action next = null;
+		java.util.List<String> vars = null; 
+		String name = ""; 
+		java.util.List<abstract_syntax.Expr> args = null; 
+		abstract_syntax.Type type = null; 
+		abstract_syntax.Expr value = null; 
+		abstract_syntax.Action body = null; 
+		
 		if (la.kind == 13) {
 			Get();
 			Expect(5);
@@ -247,29 +254,45 @@ public abstract_syntax.Program getProgram() {
 				vars = IdList();
 			}
 			Expect(6);
-			act = new abstract_syntax.LogAction(vars != null ? vars : new java.util.ArrayList<>(), null); 
+			Expect(8);
+			if (StartOf(2)) {
+				next = Action();
+			}
+			act = new abstract_syntax.LogAction(vars != null ? vars : new java.util.ArrayList<>(), next); 
 		} else if (la.kind == 14) {
 			Get();
 			Expect(1);
 			name = t.val; 
 			Expect(5);
-			if (StartOf(2)) {
+			if (StartOf(3)) {
 				args = ExpList();
 			}
 			Expect(6);
-			act = new abstract_syntax.CallAgentAction(name, args != null ? args : new java.util.ArrayList<>(), null); 
+			Expect(8);
+			if (StartOf(2)) {
+				next = Action();
+			}
+			act = new abstract_syntax.CallAgentAction(name, args != null ? args : new java.util.ArrayList<>(), next); 
 		} else if (la.kind == 15) {
 			Get();
-			act = new abstract_syntax.SkipAction(null); 
+			Expect(8);
+			if (StartOf(2)) {
+				next = Action();
+			}
+			act = new abstract_syntax.SkipAction(next); 
 		} else if (la.kind == 16) {
 			Get();
 			type = Type();
 			Expect(1);
+			name = t.val; 
 			Expect(7);
 			value = Exp();
 			Expect(17);
 			body = Action();
-			act = new abstract_syntax.LetAction(type, t.val, value, body, null); 
+			if (StartOf(2)) {
+				next = Action();
+			}
+			act = new abstract_syntax.LetAction(type, name, value, body, next); 
 		} else SynErr(43);
 		return act;
 	}
@@ -359,7 +382,7 @@ public abstract_syntax.Program getProgram() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; String op; 
 		node = ExpAdd();
-		while (StartOf(3)) {
+		while (StartOf(4)) {
 			if (la.kind == 25) {
 				Get();
 			} else if (la.kind == 26) {
@@ -424,7 +447,7 @@ public abstract_syntax.Program getProgram() {
 			Get();
 			node = ExpUnary();
 			node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0.0), node); 
-		} else if (StartOf(4)) {
+		} else if (StartOf(5)) {
 			node = Term();
 		} else SynErr(44);
 		return node;
@@ -460,7 +483,7 @@ public abstract_syntax.Program getProgram() {
 			if (la.kind == 5) {
 				Get();
 				args = new java.util.ArrayList<>(); 
-				if (StartOf(2)) {
+				if (StartOf(3)) {
 					arg = Exp();
 					args.add(arg); 
 					while (la.kind == 12) {
@@ -471,7 +494,7 @@ public abstract_syntax.Program getProgram() {
 				}
 				Expect(6);
 				node = new abstract_syntax.CallExpr(name, args); 
-			} else if (StartOf(5)) {
+			} else if (StartOf(6)) {
 				node = new abstract_syntax.VarExpr(name); 
 			} else SynErr(45);
 			break;
@@ -524,6 +547,7 @@ public abstract_syntax.Program getProgram() {
 	private static final boolean[][] set = {
 		{_T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
 		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
 		{_x,_T,_T,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x},
 		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
 		{_x,_T,_T,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_T, _T,_x,_x,_x, _x},

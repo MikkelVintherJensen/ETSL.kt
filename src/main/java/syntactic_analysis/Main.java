@@ -57,9 +57,12 @@ public class Main {
             List<Object> values = new ArrayList<>();
             for (String vs : valueStrs) {
                 vs = vs.trim();
-                try {
-                    values.add(Integer.parseInt(vs));
-                } catch (NumberFormatException e1) {
+
+                if (vs.equals("true")) {
+                    values.add(Boolean.TRUE);
+                } else if (vs.equals("false")) {
+                    values.add(Boolean.FALSE);
+                } else {
                     try {
                         values.add(Double.parseDouble(vs));
                     } catch (NumberFormatException e) {

@@ -1,0 +1,31 @@
+event PriceUpdate(num forecastPrice, num actualPrice, num volumeMWh);
+
+num highDeviationThreshold := 10.0;
+num highCostThreshold := 150.0;
+num adjustmentFee := 5.0;
+
+num function abs(num x) :=
+    if x < 0.0 then 0.0 - x else x;
+
+num function deviation(num forecast, num actual) :=
+    abs(actual - forecast);
+
+num function imbalanceCost(num forecast, num actual, num volume) :=
+    deviation(forecast, actual) * volume;
+
+bool function isHighDeviation(num forecast, num actual, num threshold) :=
+    deviation(forecast, actual) > threshold;
+
+agent PriceRiskAgent(num forecastPrice, num actualPrice, num volumeMWh) on (PriceUpdate) :=
+    log(forecastPrice, actualPrice, volumeMWh);
+    let num dev := deviation(forecastPrice, actualPrice) in log(dev);
+    let num cost := imbalanceCost(forecastPrice, actualPrice, volumeMWh) in log(cost);
+    call RiskDecisionAgent(forecastPrice, actualPrice, volumeMWh);
+    skip;
+
+agent RiskDecisionAgent(num forecastPrice, num actualPrice, num volumeMWh) on () :=
+    let num cost := imbalanceCost(forecastPrice, actualPrice, volumeMWh) in log(cost);
+    let bool highDeviation := isHighDeviation(forecastPrice, actualPrice, highDeviationThreshold) in log(highDeviation);
+    let num adjustedCost := imbalanceCost(forecastPrice, actualPrice, volumeMWh) + adjustmentFee in log(adjustedCost);
+
+num finalResult := highDeviationThreshold + highCostThreshold + adjustmentFee;
