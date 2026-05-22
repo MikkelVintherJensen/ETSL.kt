@@ -1,0 +1,6 @@
+num abe := 5;
+
+event TestEvent(num dummy);
+
+agent TestAgent(num dummy) on (TestEvent) :=
+    let bool result := if true then false else abe = true in skip;

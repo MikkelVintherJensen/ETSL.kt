@@ -1,0 +1,6 @@
+event testlol(num lol);
+
+bool x := true;
+
+agent x(num lol) on (testlol) :=
+    let result := if x then true else false in log(result);
