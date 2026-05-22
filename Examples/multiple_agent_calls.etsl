@@ -1,0 +1,14 @@
+event RunTest(num price);
+
+agent MainAgent(num price) on (RunTest) :=
+    log(price);
+    call HelperAgent(price);
+    call HelperAgent(price + 10.0);
+    call HelperAgent(price + 20.0);
+    log(price);
+
+agent HelperAgent(num value) on () :=
+    log(value);
+    log(value);
+
+num result := 0.0;

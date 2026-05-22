@@ -1,0 +1,7 @@
+list<bool> signals := [true, false, true];
+
+bool firstSignal := head(signals);
+list<bool> restSignals := tail(signals);
+bool secondSignal := head(restSignals);
+
+bool result := secondSignal;

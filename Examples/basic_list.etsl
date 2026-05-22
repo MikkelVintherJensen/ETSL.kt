@@ -1,0 +1,8 @@
+list<num> prices := [42.0, 45.0, 39.0];
+
+num first := head(prices);
+list<num> rest := tail(prices);
+num second := head(rest);
+bool restIsEmpty := empty(rest);
+
+num result := second;

@@ -127,10 +127,49 @@ ExpList <out java.util.List<abstract_syntax.Expr> list> (. list = new java.util.
   { "," Exp <out e> (. list.add(e); .) }
 .
 
-Type <out abstract_syntax.Type t> (. t = null; .)
+RecordTypeFields <out java.util.LinkedHashMap<String, abstract_syntax.Type> fields>
+(. 
+    fields = new java.util.LinkedHashMap<>(); 
+    abstract_syntax.Type fieldType = null; 
+    String fieldName = ""; 
+.)
+= Type <out fieldType> id 
+  (. fieldName = t.val; fields.put(fieldName, fieldType); .)
+  { "," Type <out fieldType> id 
+    (. fieldName = t.val; fields.put(fieldName, fieldType); .)
+  }
+.
+
+RecordFields <out java.util.LinkedHashMap<String, abstract_syntax.Expr> fields>
+(. 
+    fields = new java.util.LinkedHashMap<>(); 
+    String fieldName = ""; 
+    abstract_syntax.Expr fieldValue = null; 
+.)
+= id 
+  (. fieldName = t.val; .)
+  ":=" Exp <out fieldValue>
+  (. fields.put(fieldName, fieldValue); .)
+  { "," id 
+    (. fieldName = t.val; .)
+    ":=" Exp <out fieldValue>
+    (. fields.put(fieldName, fieldValue); .)
+  }
+.
+
+Type <out abstract_syntax.Type t>
+(. 
+    t = null; 
+    abstract_syntax.Type inner = null; 
+    java.util.LinkedHashMap<String, abstract_syntax.Type> fields = null;
+.)
 = "num"    (. t = abstract_syntax.Type.NUM; .) 
 | "bool"   (. t = abstract_syntax.Type.BOOL; .) 
 | "string" (. t = abstract_syntax.Type.STRING; .)
+| "list" "<" Type <out inner> ">" 
+          (. t = abstract_syntax.Type.list(inner); .)
+| "record" "<" RecordTypeFields <out fields> ">"
+          (. t = abstract_syntax.Type.record(fields); .)
 .
 
 Exp <out abstract_syntax.Expr node> 
@@ -180,14 +219,40 @@ ExpMul <out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op;
 ExpUnary <out abstract_syntax.Expr node> (. node = null; .)
 = "!" ExpUnary <out node> (. node = new abstract_syntax.NegExpr(node); .) 
 | "-" ExpUnary <out node> (. node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0.0), node); .)
-| Term <out node>
+| Postfix <out node>
 .
 
-Term <out abstract_syntax.Expr node> (. node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; .)
+Postfix <out abstract_syntax.Expr node>
+(. String fieldName = ""; .)
+= Term <out node>
+  { "." id 
+    (. fieldName = t.val; node = new abstract_syntax.FieldAccessExpr(node, fieldName); .)
+  }
+.
+
+Term <out abstract_syntax.Expr node> (. node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; java.util.List<abstract_syntax.Expr> elements = null; abstract_syntax.Expr listArg = null; java.util.LinkedHashMap<String, abstract_syntax.Expr> recordFields = null; .)
 = num    (. node = new abstract_syntax.NumExpr(Double.parseDouble(t.val)); .)
 | "true" (. node = new abstract_syntax.BoolExpr(true); .)
 | "false"(. node = new abstract_syntax.BoolExpr(false); .)
 | string (. String s = t.val; node = new abstract_syntax.StringExpr(s.substring(1, s.length() - 1)); .)
+| "[" 
+  (. elements = new java.util.ArrayList<>(); .)
+  [ Exp <out arg> (. elements.add(arg); .)
+    { "," Exp <out arg> (. elements.add(arg); .) }
+  ]
+  "]" (. node = new abstract_syntax.ListExpr(elements); .)
+
+| "{" RecordFields <out recordFields> "}"
+  (. node = new abstract_syntax.RecordExpr(recordFields); .)
+
+| "head" "(" Exp <out listArg> ")" 
+  (. node = new abstract_syntax.HeadExpr(listArg); .)
+
+| "tail" "(" Exp <out listArg> ")" 
+  (. node = new abstract_syntax.TailExpr(listArg); .)
+
+| "empty" "(" Exp <out listArg> ")" 
+  (. node = new abstract_syntax.EmptyExpr(listArg); .)
 | id     (. name = t.val; .)
   ( "(" 
     (. args = new java.util.ArrayList<>(); .)

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 import abstract_syntax.Action;
 import abstract_syntax.AddExpr;
@@ -38,6 +39,12 @@ import abstract_syntax.SubExpr;
 import abstract_syntax.Type;
 import abstract_syntax.VarDecl;
 import abstract_syntax.VarExpr;
+import abstract_syntax.EmptyExpr;
+import abstract_syntax.HeadExpr;
+import abstract_syntax.ListExpr;
+import abstract_syntax.TailExpr;
+import abstract_syntax.RecordExpr;
+import abstract_syntax.FieldAccessExpr;
 
 public class TypeChecker {
     private final Map<String, Type> varTypes = new HashMap<>();
@@ -116,7 +123,7 @@ public class TypeChecker {
                     );
                 } else {
                     for (int i = 0; i < event.params.size(); i++) {
-                        if (event.params.get(i).type != agent.params.get(i).type) {
+                        if (!sameType(event.params.get(i).type, agent.params.get(i).type)) {
                             error(
                                 "Agent " + agent.name + " parameter " + i + " type mismatch: "
                                 + agent.params.get(i).type + " vs event " + event.params.get(i).type
@@ -142,7 +149,7 @@ public class TypeChecker {
         if (decl instanceof VarDecl varDecl) {
             Type exprType = typeOf(varDecl.value);
 
-            if (exprType != varDecl.type) {
+            if (!sameType(exprType, varDecl.type)) {
                 error("Variable " + varDecl.name + " declared as " + varDecl.type + " but assigned " + exprType);
             }
 
@@ -176,7 +183,7 @@ public class TypeChecker {
 
         Type bodyType = typeOf(funcDecl.body);
 
-        if (bodyType != funcDecl.returnType) {
+        if (!sameType(bodyType, funcDecl.returnType)) {
             error(
                 "Function " + funcDecl.name + " declared to return " + funcDecl.returnType
                 + " but body has type " + bodyType
@@ -233,7 +240,7 @@ public class TypeChecker {
                     Type expectedType = target.params.get(i).type;
                     Type actualType = typeOf(callAction.args.get(i));
 
-                    if (expectedType != actualType) {
+                    if (!sameType(expectedType, actualType)) {
                         error(
                             "Agent call " + callAction.agentName + " argument " + i
                             + " type mismatch: expected " + expectedType + ", got " + actualType
@@ -250,7 +257,7 @@ public class TypeChecker {
         } else if (action instanceof LetAction letAction) {
             Type valType = typeOf(letAction.value);
 
-            if (valType != letAction.type) {
+            if (!sameType(valType, letAction.type)) {
                 error(
                     "Let binding " + letAction.name + " declared as " + letAction.type
                     + " but assigned " + valType
@@ -308,7 +315,7 @@ public class TypeChecker {
         } else if (expr instanceof NegExpr negExpr) {
             Type t = typeOf(negExpr.expr);
 
-            if (t != Type.BOOL) {
+            if (!sameType(t, Type.BOOL)) {
                 error("! operator requires bool, got " + t);
             }
 
@@ -324,7 +331,7 @@ public class TypeChecker {
             Type leftType = typeOf(eqExpr.left);
             Type rightType = typeOf(eqExpr.right);
 
-            if (leftType != rightType) {
+            if (!sameType(leftType, rightType)) {
                 error("Cannot compare " + leftType + " with " + rightType);
             }
 
@@ -334,7 +341,7 @@ public class TypeChecker {
             Type leftType = typeOf(neqExpr.left);
             Type rightType = typeOf(neqExpr.right);
 
-            if (leftType != rightType) {
+            if (!sameType(leftType, rightType)) {
                 error("Cannot compare " + leftType + " with " + rightType);
             }
 
@@ -355,14 +362,14 @@ public class TypeChecker {
         } else if (expr instanceof IfExpr ifExpr) {
             Type condType = typeOf(ifExpr.cond);
 
-            if (condType != Type.BOOL) {
+            if (!sameType(condType, Type.BOOL)) {
                 error("If condition must be bool, got " + condType);
             }
 
             Type thenType = typeOf(ifExpr.thenExpr);
             Type elseType = typeOf(ifExpr.elseExpr);
 
-            if (thenType != elseType) {
+            if (!sameType(thenType, elseType)) {
                 error("If branches have different types: " + thenType + " and " + elseType);
             }
 
@@ -371,7 +378,7 @@ public class TypeChecker {
         } else if (expr instanceof LetExpr letExpr) {
             Type valType = typeOf(letExpr.value);
 
-            if (valType != letExpr.type) {
+            if (!sameType(valType, letExpr.type)) {
                 error("Let variable " + letExpr.name + " declared as " + letExpr.type + " but assigned " + valType);
             }
 
@@ -407,7 +414,7 @@ public class TypeChecker {
                     Type paramType = func.params.get(i).type;
                     Type argType = typeOf(callExpr.args.get(i));
 
-                    if (paramType != argType) {
+                    if (!sameType(paramType, argType)) {
                         error(
                             "Function " + callExpr.name + " parameter " + i
                             + " expects " + paramType + ", got " + argType
@@ -417,6 +424,81 @@ public class TypeChecker {
             }
 
             return func.returnType;
+        } else if (expr instanceof ListExpr listExpr) {
+            if (listExpr.elements.isEmpty()) {
+                error("Cannot infer type of empty list");
+                return Type.list(Type.NUM); // Dummy return
+            }
+
+            Type elementType = typeOf(listExpr.elements.get(0));
+
+            for (int i = 1; i < listExpr.elements.size(); i++) {
+                Type currentType = typeOf(listExpr.elements.get(i));
+
+                if (!sameType(elementType, currentType)) {
+                    error("List elements must have same type, got " + elementType + " and " + currentType);
+                }
+            }
+
+            return Type.list(elementType);
+
+        } else if (expr instanceof HeadExpr headExpr) {
+            Type listType = typeOf(headExpr.list);
+
+            if (!listType.isList()) {
+                error("head expects a list, got " + listType);
+                return Type.NUM; // Dummy return
+            }
+
+            return listType.elementType;
+
+        } else if (expr instanceof TailExpr tailExpr) {
+            Type listType = typeOf(tailExpr.list);
+
+            if (!listType.isList()) {
+                error("tail expects a list, got " + listType);
+                return Type.list(Type.NUM); // Dummy return
+            }
+
+            return listType;
+
+        } else if (expr instanceof EmptyExpr emptyExpr) {
+            Type listType = typeOf(emptyExpr.list);
+
+            if (!listType.isList()) {
+                error("empty expects a list, got " + listType);
+            }
+
+            return Type.BOOL;
+        } else if (expr instanceof RecordExpr recordExpr) {
+            LinkedHashMap<String, Type> fieldTypes = new LinkedHashMap<>();
+
+            for (Map.Entry<String, Expr> entry : recordExpr.fields.entrySet()) {
+                if (fieldTypes.containsKey(entry.getKey())) {
+                    error("Duplicate record field " + entry.getKey());
+                }
+
+                fieldTypes.put(entry.getKey(), typeOf(entry.getValue()));
+            }
+
+            return Type.record(fieldTypes);
+
+        } else if (expr instanceof FieldAccessExpr fieldAccessExpr) {
+            Type recordType = typeOf(fieldAccessExpr.record);
+
+            if (!recordType.isRecord()) {
+                error("Field access expects a record, got " + recordType);
+                return Type.NUM; // Dummy return
+            }
+
+            Type fieldType = recordType.fieldType(fieldAccessExpr.fieldName);
+
+            if (fieldType == null) {
+                error("Record has no field " + fieldAccessExpr.fieldName);
+                return Type.NUM; // Dummy return
+            }
+
+            return fieldType;
         }
 
         error("Unknown expression type: " + expr.getClass().getSimpleName());
@@ -427,7 +509,7 @@ public class TypeChecker {
         Type leftType = typeOf(left);
         Type rightType = typeOf(right);
 
-        if (leftType != Type.NUM || rightType != Type.NUM) {
+        if (!sameType(leftType, Type.NUM) || !sameType(rightType, Type.NUM)) {
             error("Operator " + op + " requires num operands, got " + leftType + " and " + rightType);
         }
 
@@ -438,7 +520,7 @@ public class TypeChecker {
         Type leftType = typeOf(left);
         Type rightType = typeOf(right);
 
-        if (leftType != Type.NUM || rightType != Type.NUM) {
+        if (!sameType(leftType, Type.NUM) || !sameType(rightType, Type.NUM)) {
             error("Operator " + op + " requires num operands, got " + leftType + " and " + rightType);
         }
 
@@ -449,11 +531,15 @@ public class TypeChecker {
         Type leftType = typeOf(left);
         Type rightType = typeOf(right);
 
-        if (leftType != Type.BOOL || rightType != Type.BOOL) {
+        if (!sameType(leftType, Type.BOOL) || !sameType(rightType, Type.BOOL)) {
             error("Operator " + op + " requires bool operands, got " + leftType + " and " + rightType);
         }
 
         return Type.BOOL;
+    }
+
+    private boolean sameType(Type a, Type b) {
+        return a != null && a.equals(b);
     }
 
     private void error(String msg) {

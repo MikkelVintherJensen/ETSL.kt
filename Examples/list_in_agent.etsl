@@ -1,0 +1,9 @@
+event PriceBatch(num firstPrice, num secondPrice, num thirdPrice);
+
+agent BatchLogger(num firstPrice, num secondPrice, num thirdPrice) on (PriceBatch) :=
+    let list<num> prices := [firstPrice, secondPrice, thirdPrice] in
+    let num first := head(prices) in
+    let num second := head(tail(prices)) in
+    log(first, second);
+
+num result := 0.0;

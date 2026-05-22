@@ -1,0 +1,5 @@
+num function firstPrice(list<num> prices) := head(prices);
+
+list<num> prices := [88.5, 91.0, 93.5];
+
+num result := firstPrice(prices);

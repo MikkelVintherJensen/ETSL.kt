@@ -5,7 +5,7 @@ public class Parser {
 	public static final int _id = 1;
 	public static final int _num = 2;
 	public static final int _string = 3;
-	public static final int maxT = 39;
+	public static final int maxT = 49;
 
 	static final boolean _T = true;
 	static final boolean _x = false;
@@ -102,7 +102,7 @@ public abstract_syntax.Program getProgram() {
 	abstract_syntax.Decl  Decl() {
 		abstract_syntax.Decl  node;
 		node = null; abstract_syntax.Type type = null; 
-		if (la.kind == 18 || la.kind == 19 || la.kind == 20) {
+		if (StartOf(2)) {
 			type = Type();
 			if (la.kind == 4) {
 				Get();
@@ -110,7 +110,7 @@ public abstract_syntax.Program getProgram() {
 				Expect(1);
 				name = t.val; 
 				Expect(5);
-				if (la.kind == 18 || la.kind == 19 || la.kind == 20) {
+				if (StartOf(2)) {
 					params  = ParamList();
 				}
 				Expect(6);
@@ -126,14 +126,14 @@ public abstract_syntax.Program getProgram() {
 				value = Exp();
 				Expect(8);
 				node = new abstract_syntax.VarDecl(type, name, value); 
-			} else SynErr(40);
+			} else SynErr(50);
 		} else if (la.kind == 9) {
 			Get();
 			String name = ""; java.util.List<abstract_syntax.EventDecl.Param> params = null; 
 			Expect(1);
 			name = t.val; 
 			Expect(5);
-			if (la.kind == 18 || la.kind == 19 || la.kind == 20) {
+			if (StartOf(2)) {
 				params = EventParamList();
 			}
 			Expect(6);
@@ -145,7 +145,7 @@ public abstract_syntax.Program getProgram() {
 			Expect(1);
 			name = t.val; 
 			Expect(5);
-			if (la.kind == 18 || la.kind == 19 || la.kind == 20) {
+			if (StartOf(2)) {
 				params = AgentParamList();
 			}
 			Expect(6);
@@ -158,13 +158,16 @@ public abstract_syntax.Program getProgram() {
 			Expect(7);
 			act = Action();
 			node = new abstract_syntax.AgentDecl(name, params != null ? params : new java.util.ArrayList<>(), events != null ? events : new java.util.ArrayList<>(), act); 
-		} else SynErr(41);
+		} else SynErr(51);
 		return node;
 	}
 
 	abstract_syntax.Type  Type() {
 		abstract_syntax.Type  t;
 		t = null; 
+		abstract_syntax.Type inner = null; 
+		java.util.LinkedHashMap<String, abstract_syntax.Type> fields = null;
+		
 		if (la.kind == 18) {
 			Get();
 			t = abstract_syntax.Type.NUM; 
@@ -174,7 +177,19 @@ public abstract_syntax.Program getProgram() {
 		} else if (la.kind == 20) {
 			Get();
 			t = abstract_syntax.Type.STRING; 
-		} else SynErr(42);
+		} else if (la.kind == 21) {
+			Get();
+			Expect(22);
+			inner = Type();
+			Expect(23);
+			t = abstract_syntax.Type.list(inner); 
+		} else if (la.kind == 24) {
+			Get();
+			Expect(22);
+			fields = RecordTypeFields();
+			Expect(23);
+			t = abstract_syntax.Type.record(fields); 
+		} else SynErr(52);
 		return t;
 	}
 
@@ -255,7 +270,7 @@ public abstract_syntax.Program getProgram() {
 			}
 			Expect(6);
 			Expect(8);
-			if (StartOf(2)) {
+			if (StartOf(3)) {
 				next = Action();
 			}
 			act = new abstract_syntax.LogAction(vars != null ? vars : new java.util.ArrayList<>(), next); 
@@ -264,19 +279,19 @@ public abstract_syntax.Program getProgram() {
 			Expect(1);
 			name = t.val; 
 			Expect(5);
-			if (StartOf(3)) {
+			if (StartOf(4)) {
 				args = ExpList();
 			}
 			Expect(6);
 			Expect(8);
-			if (StartOf(2)) {
+			if (StartOf(3)) {
 				next = Action();
 			}
 			act = new abstract_syntax.CallAgentAction(name, args != null ? args : new java.util.ArrayList<>(), next); 
 		} else if (la.kind == 15) {
 			Get();
 			Expect(8);
-			if (StartOf(2)) {
+			if (StartOf(3)) {
 				next = Action();
 			}
 			act = new abstract_syntax.SkipAction(next); 
@@ -289,11 +304,11 @@ public abstract_syntax.Program getProgram() {
 			value = Exp();
 			Expect(17);
 			body = Action();
-			if (StartOf(2)) {
+			if (StartOf(3)) {
 				next = Action();
 			}
 			act = new abstract_syntax.LetAction(type, name, value, body, next); 
-		} else SynErr(43);
+		} else SynErr(53);
 		return act;
 	}
 
@@ -337,11 +352,51 @@ public abstract_syntax.Program getProgram() {
 		return list;
 	}
 
+	java.util.LinkedHashMap<String, abstract_syntax.Type>  RecordTypeFields() {
+		java.util.LinkedHashMap<String, abstract_syntax.Type>  fields;
+		fields = new java.util.LinkedHashMap<>(); 
+		abstract_syntax.Type fieldType = null; 
+		String fieldName = ""; 
+		
+		fieldType = Type();
+		Expect(1);
+		fieldName = t.val; fields.put(fieldName, fieldType); 
+		while (la.kind == 12) {
+			Get();
+			fieldType = Type();
+			Expect(1);
+			fieldName = t.val; fields.put(fieldName, fieldType); 
+		}
+		return fields;
+	}
+
+	java.util.LinkedHashMap<String, abstract_syntax.Expr>  RecordFields() {
+		java.util.LinkedHashMap<String, abstract_syntax.Expr>  fields;
+		fields = new java.util.LinkedHashMap<>(); 
+		String fieldName = ""; 
+		abstract_syntax.Expr fieldValue = null; 
+		
+		Expect(1);
+		fieldName = t.val; 
+		Expect(7);
+		fieldValue = Exp();
+		fields.put(fieldName, fieldValue); 
+		while (la.kind == 12) {
+			Get();
+			Expect(1);
+			fieldName = t.val; 
+			Expect(7);
+			fieldValue = Exp();
+			fields.put(fieldName, fieldValue); 
+		}
+		return fields;
+	}
+
 	abstract_syntax.Expr  ExpOr() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; 
 		node = ExpAnd();
-		while (la.kind == 21) {
+		while (la.kind == 25) {
 			Get();
 			right = ExpAnd();
 			node = new abstract_syntax.OrExpr(node, right); 
@@ -353,7 +408,7 @@ public abstract_syntax.Program getProgram() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; 
 		node = ExpEq();
-		while (la.kind == 22) {
+		while (la.kind == 26) {
 			Get();
 			right = ExpEq();
 			node = new abstract_syntax.AndExpr(node, right); 
@@ -365,8 +420,8 @@ public abstract_syntax.Program getProgram() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; String op; 
 		node = ExpRel();
-		while (la.kind == 23 || la.kind == 24) {
-			if (la.kind == 23) {
+		while (la.kind == 27 || la.kind == 28) {
+			if (la.kind == 27) {
 				Get();
 			} else {
 				Get();
@@ -382,12 +437,12 @@ public abstract_syntax.Program getProgram() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; String op; 
 		node = ExpAdd();
-		while (StartOf(4)) {
-			if (la.kind == 25) {
+		while (StartOf(5)) {
+			if (la.kind == 22) {
 				Get();
-			} else if (la.kind == 26) {
+			} else if (la.kind == 29) {
 				Get();
-			} else if (la.kind == 27) {
+			} else if (la.kind == 23) {
 				Get();
 			} else {
 				Get();
@@ -406,8 +461,8 @@ public abstract_syntax.Program getProgram() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; String op; 
 		node = ExpMul();
-		while (la.kind == 29 || la.kind == 30) {
-			if (la.kind == 29) {
+		while (la.kind == 31 || la.kind == 32) {
+			if (la.kind == 31) {
 				Get();
 			} else {
 				Get();
@@ -423,8 +478,8 @@ public abstract_syntax.Program getProgram() {
 		abstract_syntax.Expr  node;
 		abstract_syntax.Expr right; String op; 
 		node = ExpUnary();
-		while (la.kind == 31 || la.kind == 32) {
-			if (la.kind == 31) {
+		while (la.kind == 33 || la.kind == 34) {
+			if (la.kind == 33) {
 				Get();
 			} else {
 				Get();
@@ -439,35 +494,47 @@ public abstract_syntax.Program getProgram() {
 	abstract_syntax.Expr  ExpUnary() {
 		abstract_syntax.Expr  node;
 		node = null; 
-		if (la.kind == 33) {
+		if (la.kind == 35) {
 			Get();
 			node = ExpUnary();
 			node = new abstract_syntax.NegExpr(node); 
-		} else if (la.kind == 30) {
+		} else if (la.kind == 32) {
 			Get();
 			node = ExpUnary();
 			node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0.0), node); 
-		} else if (StartOf(5)) {
-			node = Term();
-		} else SynErr(44);
+		} else if (StartOf(6)) {
+			node = Postfix();
+		} else SynErr(54);
+		return node;
+	}
+
+	abstract_syntax.Expr  Postfix() {
+		abstract_syntax.Expr  node;
+		String fieldName = ""; 
+		node = Term();
+		while (la.kind == 36) {
+			Get();
+			Expect(1);
+			fieldName = t.val; node = new abstract_syntax.FieldAccessExpr(node, fieldName); 
+		}
 		return node;
 	}
 
 	abstract_syntax.Expr  Term() {
 		abstract_syntax.Expr  node;
-		node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; 
+		node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; java.util.List<abstract_syntax.Expr> elements = null; abstract_syntax.Expr listArg = null; java.util.LinkedHashMap<String, abstract_syntax.Expr> recordFields = null; 
 		switch (la.kind) {
 		case 2: {
 			Get();
 			node = new abstract_syntax.NumExpr(Double.parseDouble(t.val)); 
 			break;
 		}
-		case 34: {
+		case 37: {
 			Get();
 			node = new abstract_syntax.BoolExpr(true); 
 			break;
 		}
-		case 35: {
+		case 38: {
 			Get();
 			node = new abstract_syntax.BoolExpr(false); 
 			break;
@@ -477,13 +544,60 @@ public abstract_syntax.Program getProgram() {
 			String s = t.val; node = new abstract_syntax.StringExpr(s.substring(1, s.length() - 1)); 
 			break;
 		}
+		case 39: {
+			Get();
+			elements = new java.util.ArrayList<>(); 
+			if (StartOf(4)) {
+				arg = Exp();
+				elements.add(arg); 
+				while (la.kind == 12) {
+					Get();
+					arg = Exp();
+					elements.add(arg); 
+				}
+			}
+			Expect(40);
+			node = new abstract_syntax.ListExpr(elements); 
+			break;
+		}
+		case 41: {
+			Get();
+			recordFields = RecordFields();
+			Expect(42);
+			node = new abstract_syntax.RecordExpr(recordFields); 
+			break;
+		}
+		case 43: {
+			Get();
+			Expect(5);
+			listArg = Exp();
+			Expect(6);
+			node = new abstract_syntax.HeadExpr(listArg); 
+			break;
+		}
+		case 44: {
+			Get();
+			Expect(5);
+			listArg = Exp();
+			Expect(6);
+			node = new abstract_syntax.TailExpr(listArg); 
+			break;
+		}
+		case 45: {
+			Get();
+			Expect(5);
+			listArg = Exp();
+			Expect(6);
+			node = new abstract_syntax.EmptyExpr(listArg); 
+			break;
+		}
 		case 1: {
 			Get();
 			name = t.val; 
 			if (la.kind == 5) {
 				Get();
 				args = new java.util.ArrayList<>(); 
-				if (StartOf(3)) {
+				if (StartOf(4)) {
 					arg = Exp();
 					args.add(arg); 
 					while (la.kind == 12) {
@@ -494,9 +608,9 @@ public abstract_syntax.Program getProgram() {
 				}
 				Expect(6);
 				node = new abstract_syntax.CallExpr(name, args); 
-			} else if (StartOf(6)) {
+			} else if (StartOf(7)) {
 				node = new abstract_syntax.VarExpr(name); 
-			} else SynErr(45);
+			} else SynErr(55);
 			break;
 		}
 		case 5: {
@@ -505,12 +619,12 @@ public abstract_syntax.Program getProgram() {
 			Expect(6);
 			break;
 		}
-		case 36: {
+		case 46: {
 			Get();
 			cond = Exp();
-			Expect(37);
+			Expect(47);
 			thenExpr = Exp();
-			Expect(38);
+			Expect(48);
 			node = Exp();
 			node = new abstract_syntax.IfExpr(cond, thenExpr, node); 
 			break;
@@ -527,7 +641,7 @@ public abstract_syntax.Program getProgram() {
 			node = new abstract_syntax.LetExpr(letType, letName, letVal, node); 
 			break;
 		}
-		default: SynErr(46); break;
+		default: SynErr(56); break;
 		}
 		return node;
 	}
@@ -545,13 +659,14 @@ public abstract_syntax.Program getProgram() {
 	}
 
 	private static final boolean[][] set = {
-		{_T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
-		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
-		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
-		{_x,_T,_T,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x},
-		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x},
-		{_x,_T,_T,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_T, _T,_x,_x,_x, _x},
-		{_x,_x,_x,_x, _x,_x,_T,_x, _T,_x,_x,_x, _T,_x,_x,_x, _x,_T,_x,_x, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_x,_x, _x,_T,_T,_x, _x}
+		{_T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_T,_T, _T,_T,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_T, _T,_T,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_T,_T,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_T, _x,_T,_T,_T, _x,_T,_x,_T, _T,_T,_T,_x, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_T, _x,_x,_x,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_T,_T,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_T, _x,_T,_x,_T, _T,_T,_T,_x, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_T,_x, _T,_x,_x,_x, _T,_x,_x,_x, _x,_T,_x,_x, _x,_x,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _T,_x,_x,_x, _T,_x,_T,_x, _x,_x,_x,_T, _T,_x,_x}
 
 	};
 } // end Parser
@@ -597,32 +712,42 @@ class Errors {
 			case 18: s = "\"num\" expected"; break;
 			case 19: s = "\"bool\" expected"; break;
 			case 20: s = "\"string\" expected"; break;
-			case 21: s = "\"||\" expected"; break;
-			case 22: s = "\"&&\" expected"; break;
-			case 23: s = "\"=\" expected"; break;
-			case 24: s = "\"!=\" expected"; break;
-			case 25: s = "\"<\" expected"; break;
-			case 26: s = "\"<=\" expected"; break;
-			case 27: s = "\">\" expected"; break;
-			case 28: s = "\">=\" expected"; break;
-			case 29: s = "\"+\" expected"; break;
-			case 30: s = "\"-\" expected"; break;
-			case 31: s = "\"*\" expected"; break;
-			case 32: s = "\"/\" expected"; break;
-			case 33: s = "\"!\" expected"; break;
-			case 34: s = "\"true\" expected"; break;
-			case 35: s = "\"false\" expected"; break;
-			case 36: s = "\"if\" expected"; break;
-			case 37: s = "\"then\" expected"; break;
-			case 38: s = "\"else\" expected"; break;
-			case 39: s = "??? expected"; break;
-			case 40: s = "invalid Decl"; break;
-			case 41: s = "invalid Decl"; break;
-			case 42: s = "invalid Type"; break;
-			case 43: s = "invalid Action"; break;
-			case 44: s = "invalid ExpUnary"; break;
-			case 45: s = "invalid Term"; break;
-			case 46: s = "invalid Term"; break;
+			case 21: s = "\"list\" expected"; break;
+			case 22: s = "\"<\" expected"; break;
+			case 23: s = "\">\" expected"; break;
+			case 24: s = "\"record\" expected"; break;
+			case 25: s = "\"||\" expected"; break;
+			case 26: s = "\"&&\" expected"; break;
+			case 27: s = "\"=\" expected"; break;
+			case 28: s = "\"!=\" expected"; break;
+			case 29: s = "\"<=\" expected"; break;
+			case 30: s = "\">=\" expected"; break;
+			case 31: s = "\"+\" expected"; break;
+			case 32: s = "\"-\" expected"; break;
+			case 33: s = "\"*\" expected"; break;
+			case 34: s = "\"/\" expected"; break;
+			case 35: s = "\"!\" expected"; break;
+			case 36: s = "\".\" expected"; break;
+			case 37: s = "\"true\" expected"; break;
+			case 38: s = "\"false\" expected"; break;
+			case 39: s = "\"[\" expected"; break;
+			case 40: s = "\"]\" expected"; break;
+			case 41: s = "\"{\" expected"; break;
+			case 42: s = "\"}\" expected"; break;
+			case 43: s = "\"head\" expected"; break;
+			case 44: s = "\"tail\" expected"; break;
+			case 45: s = "\"empty\" expected"; break;
+			case 46: s = "\"if\" expected"; break;
+			case 47: s = "\"then\" expected"; break;
+			case 48: s = "\"else\" expected"; break;
+			case 49: s = "??? expected"; break;
+			case 50: s = "invalid Decl"; break;
+			case 51: s = "invalid Decl"; break;
+			case 52: s = "invalid Type"; break;
+			case 53: s = "invalid Action"; break;
+			case 54: s = "invalid ExpUnary"; break;
+			case 55: s = "invalid Term"; break;
+			case 56: s = "invalid Term"; break;
 			default: s = "error " + n; break;
 		}
 		printMsg(line, col, s);

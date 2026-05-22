@@ -1,0 +1,7 @@
+record<num price, num volume, string market> trade :=
+    { price := 42.0, volume := 100.0, market := "DK1" };
+
+num price := trade.price;
+string market := trade.market;
+
+num result := price;

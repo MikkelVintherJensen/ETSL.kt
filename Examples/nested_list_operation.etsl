@@ -1,0 +1,5 @@
+list<num> values := [10.0, 20.0, 30.0, 40.0];
+
+num third := head(tail(tail(values)));
+
+num result := third;

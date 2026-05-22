@@ -1,0 +1,7 @@
+list<string> markets := ["DK1", "DK2", "SE3"];
+
+string firstMarket := head(markets);
+list<string> remainingMarkets := tail(markets);
+string secondMarket := head(remainingMarkets);
+
+string result := secondMarket;

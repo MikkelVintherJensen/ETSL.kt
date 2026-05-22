@@ -1,31 +1,41 @@
-event PriceUpdate(num forecastPrice, num actualPrice, num volumeMWh);
+event MarketSnapshot(num price1, num price2, num price3, num volume, string market, bool verified);
 
-num highDeviationThreshold := 10.0;
-num highCostThreshold := 150.0;
+num highPriceThreshold := 90.0;
 num adjustmentFee := 5.0;
 
 num function abs(num x) :=
     if x < 0.0 then 0.0 - x else x;
 
-num function deviation(num forecast, num actual) :=
-    abs(actual - forecast);
+num function average3(num a, num b, num c) :=
+    (a + b + c) / 3.0;
 
-num function imbalanceCost(num forecast, num actual, num volume) :=
-    deviation(forecast, actual) * volume;
+bool function isHighPrice(num price, num threshold) :=
+    price > threshold;
 
-bool function isHighDeviation(num forecast, num actual, num threshold) :=
-    deviation(forecast, actual) > threshold;
+record<num price, num volume, string market, bool verified> baseTrade :=
+    { price := 80.0, volume := 10.0, market := "DK1", verified := true };
 
-agent PriceRiskAgent(num forecastPrice, num actualPrice, num volumeMWh) on (PriceUpdate) :=
-    log(forecastPrice, actualPrice, volumeMWh);
-    let num dev := deviation(forecastPrice, actualPrice) in log(dev);
-    let num cost := imbalanceCost(forecastPrice, actualPrice, volumeMWh) in log(cost);
-    call RiskDecisionAgent(forecastPrice, actualPrice, volumeMWh);
+list<num> historicalPrices := [75.0, 82.0, 88.0];
+
+num historicalFirst := head(historicalPrices);
+num historicalSecond := head(tail(historicalPrices));
+
+agent SnapshotAgent(num price1, num price2, num price3, num volume, string market, bool verified) on (MarketSnapshot) :=
+    let list<num> prices := [price1, price2, price3] in
+    let num firstPrice := head(prices) in
+    let num secondPrice := head(tail(prices)) in
+    let num avgPrice := average3(price1, price2, price3) in
+    let record<num price, num volume, string market, bool verified> trade :=
+        { price := avgPrice, volume := volume, market := market, verified := verified } in
+    log(firstPrice, secondPrice, avgPrice);
+    call RiskAgent(trade.price, trade.volume, trade.market, trade.verified);
     skip;
 
-agent RiskDecisionAgent(num forecastPrice, num actualPrice, num volumeMWh) on () :=
-    let num cost := imbalanceCost(forecastPrice, actualPrice, volumeMWh) in log(cost);
-    let bool highDeviation := isHighDeviation(forecastPrice, actualPrice, highDeviationThreshold) in log(highDeviation);
-    let num adjustedCost := imbalanceCost(forecastPrice, actualPrice, volumeMWh) + adjustmentFee in log(adjustedCost);
+agent RiskAgent(num price, num volume, string market, bool verified) on () :=
+    let bool highPrice := isHighPrice(price, highPriceThreshold) in
+    let num adjustedPrice := price + adjustmentFee in
+    let record<num adjustedPrice, string market, bool highPrice, bool verified> riskRecord :=
+        { adjustedPrice := adjustedPrice, market := market, highPrice := highPrice, verified := verified } in
+    log(adjustedPrice, market, highPrice, verified);
 
-num finalResult := highDeviationThreshold + highCostThreshold + adjustmentFee;
+num finalResult := baseTrade.price + historicalFirst + historicalSecond;

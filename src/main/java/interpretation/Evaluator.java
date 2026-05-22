@@ -43,6 +43,12 @@ import abstract_syntax.SubExpr;
 import abstract_syntax.VarDecl;
 import abstract_syntax.VarExpr;
 import abstract_syntax.Type;
+import abstract_syntax.EmptyExpr;
+import abstract_syntax.HeadExpr;
+import abstract_syntax.ListExpr;
+import abstract_syntax.TailExpr;
+import abstract_syntax.RecordExpr;
+import abstract_syntax.FieldAccessExpr;
 
 public class Evaluator {
     // Local/current variable environment: function params, event params, let bindings
@@ -63,8 +69,11 @@ public class Evaluator {
     private boolean insideFunction = false;
 
     // Logs
-    private final Map<String, List<LogEntry>> agentLogs = new HashMap<>();
-    private final List<LogEntry> globalLog = new ArrayList<>();
+    // Report-style global log: AgentId -> AgentLog
+    private final Map<String, List<LogEntry>> globalLog = new LinkedHashMap<>();
+
+    // Optional flat chronological timeline of all log entries
+    private final List<LogEntry> executionTimeline = new ArrayList<>();
 
     // Event queue
     private final Queue<EventInstance> eventQueue = new LinkedList<>();
@@ -81,7 +90,7 @@ public class Evaluator {
                 envF.put(func.name, func);
             } else if (decl instanceof AgentDecl agent) {
                 envA.put(agent.name, agent);
-                agentLogs.put(agent.name, new ArrayList<>());
+                globalLog.put(agent.name, new ArrayList<>());
 
                 for (String eventName : agent.listensTo) {
                     envR.computeIfAbsent(eventName, k -> new ArrayList<>()).add(agent.name);
@@ -110,14 +119,31 @@ public class Evaluator {
             processEvent(event);
         }
 
-        if (!globalLog.isEmpty()) {
-            System.out.println("=== Execution Log ===");
-            for (LogEntry entry : globalLog) {
-                System.out.println(entry);
-            }
+        if (!executionTimeline.isEmpty()) {
+            printGlobalLog();
         }
 
         return lastResult;
+    }
+
+    private void printGlobalLog() {
+        System.out.println("=== Global Log ===");
+
+        for (Map.Entry<String, List<LogEntry>> agentEntry : globalLog.entrySet()) {
+            String agentName = agentEntry.getKey();
+            List<LogEntry> agentLog = agentEntry.getValue();
+
+            if (agentLog.isEmpty()) {
+                continue;
+            }
+
+            System.out.println(agentName + ":");
+
+            for (int i = 0; i < agentLog.size(); i++) {
+                LogEntry logEntry = agentLog.get(i);
+                System.out.println("  " + i + ": " + logEntry.data);
+            }
+        }
     }
 
     private void validateEventInstance(EventInstance event) {
@@ -149,11 +175,23 @@ public class Evaluator {
     }
 
     private boolean matchesType(Type expected, Object value) {
-        return switch (expected) {
-            case NUM -> value instanceof Double;
-            case BOOL -> value instanceof Boolean;
-            case STRING -> value instanceof String;
-        };
+        if (expected.equals(Type.NUM)) {
+            return value instanceof Double;
+        }
+
+        if (expected.equals(Type.BOOL)) {
+            return value instanceof Boolean;
+        }
+
+        if (expected.equals(Type.STRING)) {
+            return value instanceof String;
+        }
+
+        if (expected.isList()) {
+            return value instanceof List<?>;
+        }
+
+        return false;
     }
 
     private String runtimeTypeName(Object value) {
@@ -276,8 +314,8 @@ public class Evaluator {
             }
 
             LogEntry entry = new LogEntry(currentAgent, logData);
-            globalLog.add(entry);
-            agentLogs.get(currentAgent).add(entry);
+            executionTimeline.add(entry);
+            globalLog.get(currentAgent).add(entry);
 
             System.out.println("    Log: " + entry);
             executeAction(logAction.next, currentAgent);
@@ -454,6 +492,70 @@ public class Evaluator {
             }
 
             return callFunction(func, args);
+        } else if (expr instanceof ListExpr listExpr) {
+            List<Object> values = new ArrayList<>();
+
+            for (Expr element : listExpr.elements) {
+                values.add(eval(element));
+            }
+
+            return values;
+
+        } else if (expr instanceof HeadExpr headExpr) {
+            Object value = eval(headExpr.list);
+
+            if (!(value instanceof List<?> list)) {
+                throw new RuntimeException("head expects a list");
+            }
+
+            if (list.isEmpty()) {
+                throw new RuntimeException("Cannot take head of empty list");
+            }
+
+            return list.get(0);
+
+        } else if (expr instanceof TailExpr tailExpr) {
+            Object value = eval(tailExpr.list);
+
+            if (!(value instanceof List<?> list)) {
+                throw new RuntimeException("tail expects a list");
+            }
+
+            if (list.isEmpty()) {
+                throw new RuntimeException("Cannot take tail of empty list");
+            }
+
+            return new ArrayList<>(list.subList(1, list.size()));
+
+        } else if (expr instanceof EmptyExpr emptyExpr) {
+            Object value = eval(emptyExpr.list);
+
+            if (!(value instanceof List<?> list)) {
+                throw new RuntimeException("empty expects a list");
+            }
+
+            return list.isEmpty();
+        } else if (expr instanceof RecordExpr recordExpr) {
+            Map<String, Object> values = new LinkedHashMap<>();
+
+            for (Map.Entry<String, Expr> entry : recordExpr.fields.entrySet()) {
+                values.put(entry.getKey(), eval(entry.getValue()));
+            }
+
+            return values;
+
+        } else if (expr instanceof FieldAccessExpr fieldAccessExpr) {
+            Object recordValue = eval(fieldAccessExpr.record);
+
+            if (!(recordValue instanceof Map<?, ?> record)) {
+                throw new RuntimeException("Field access expects a record");
+            }
+
+            if (!record.containsKey(fieldAccessExpr.fieldName)) {
+                throw new RuntimeException("Record has no field " + fieldAccessExpr.fieldName);
+            }
+
+            return record.get(fieldAccessExpr.fieldName);
         }
 
         throw new RuntimeException("Unknown expression: " + expr.getClass().getSimpleName());
