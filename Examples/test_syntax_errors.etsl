@@ -1,0 +1,7 @@
+event PriceUpdate(num price)  // Missing semicolon
+
+event VolumeUpdate(num volume);
+
+agent TestAgent(num price on (PriceUpdate) := log(price)  // Missing closing parenthesis and semicolon
+
+num valid := 42;

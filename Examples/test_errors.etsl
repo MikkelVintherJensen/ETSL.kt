@@ -1,0 +1,6 @@
+event PriceUpdate(num price)
+agent BadAgent(num price) on (WrongEvent) := log(price);
+num x := y + 5;
+num str := "hello";
+num div := 10 / 0;
+agent Caller() on () := call NonExistentAgent();

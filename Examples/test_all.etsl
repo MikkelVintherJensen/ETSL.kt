@@ -1,0 +1,112 @@
+event MarketTick();
+event Heartbeat();
+event SystemStatus();
+
+event PriceUpdate(num price);
+event VolumeUpdate(num volume);
+event StringUpdate(string message);
+event FlagUpdate(bool isActive);
+
+event TradeEvent(num price, num volume, string symbol);
+event ForecastUpdate(string market, num windForecast, num solarForecast, num consumption);
+event RiskAlert(num riskLevel, string reason, bool isUrgent);
+event PortfolioChange(num oldValue, num newValue, string asset, num delta);
+event Notification(string title, string message, num priority);
+event DataPoint(num timestamp, num value, string source, bool verified);
+
+event MegaEvent(num a, num b, num c, num d, num e, string f, string g, bool h, bool i, num j);
+
+event x();
+event y(num value);
+event z(string text);
+
+agent PriceLogger(num price) on (PriceUpdate) := log(price);
+
+agent VolumeLogger(num volume) on (VolumeUpdate) := log(volume);
+
+agent StringLogger(string message) on (StringUpdate) := log(message);
+
+agent FlagLogger(bool isActive) on (FlagUpdate) := log(isActive);
+
+agent TradeLogger(num price, num volume, string symbol) on (TradeEvent) := log(price, volume, symbol);
+
+agent ForecastLogger(string market, num wind, num solar, num consumption) on (ForecastUpdate) := log(market, wind, solar, consumption);
+
+agent RiskLogger(num riskLevel, string reason, bool isUrgent) on (RiskAlert) := log(riskLevel, reason, isUrgent);
+
+agent PortfolioLogger(num oldValue, num newValue, string asset, num delta) on (PortfolioChange) := log(oldValue, newValue, asset, delta);
+
+agent NotificationLogger(string title, string message, num priority) on (Notification) := log(title, message, priority);
+
+agent DataPointLogger(num timestamp, num value, string source, bool verified) on (DataPoint) := log(timestamp, value, source, verified);
+
+agent MegaEventLogger(num a, num b, num c, num d, num e, string f, string g, bool h, bool i, num j) on (MegaEvent) := log(a, b, c, d, e, f, g, h, i, j);
+
+agent EmptyEventLogger() on (MarketTick, Heartbeat, SystemStatus) := log();
+
+agent XLogger() on (x) := log();
+
+agent YLogger(num value) on (y) := log(value);
+
+agent ZLogger(string text) on (z) := log(text);
+
+agent NoEventLogger() on () := log();
+
+num n1 := 42;
+bool b1 := true;
+bool b2 := false;
+string s1 := "hello";
+num add := 10 + 5;
+num sub := 10 - 5;
+num mul := 10 * 5;
+num div := 10 / 5;
+num prec1 := 10 + 5 * 2;
+num prec2 := 10 - 5 * 2;
+num prec3 := 10 * 5 + 2;
+num prec4 := 10 / 5 + 2;
+num paren1 := (10 + 5) * 2;
+num paren2 := (10 - 5) * (2 + 3);
+num nested := ((10 + 2) * 3) - (8 / 2);
+bool lt := 5 < 10;
+bool le1 := 5 <= 5;
+bool le2 := 5 <= 10;
+bool gt := 10 > 5;
+bool ge1 := 10 >= 10;
+bool ge2 := 10 >= 5;
+bool eqNum := 5 = 5;
+bool neqNum := 5 != 10;
+bool eqStr := "hello" = "hello";
+bool neqStr := "hello" != "world";
+bool notTrue := !false;
+bool notFalse := !true;
+bool andTT := true && true;
+bool andTF := true && false;
+bool orFT := false || true;
+bool orFF := false || false;
+bool complex1 := (5 < 10) && (10 > 5);
+bool complex2 := (5 > 10) || (10 = 10);
+bool complex3 := !(5 > 10) && (3 <= 3);
+num if1 := if true then 100 else 200;
+num if2 := if false then 100 else 200;
+num if3 := if 5 < 10 then 50 else 0;
+string if4 := if true then "yes" else "no";
+num let1 := let num x := 5 in x + 10;
+num let2 := let num a := 3 in let num b := 4 in a * b;
+num let3 := let bool c := 5 < 10 in if c then 1 else 0;
+num function square(num x) := x * x;
+num function add3(num a, num b, num c) := a + b + c;
+num function max(num a, num b) := if a > b then a else b;
+bool function isPositive(num x) := x > 0;
+num function fib(num n) := if n <= 1 then n else fib(n - 1) + fib(n - 2);
+num sq := square(7);
+num sum3 := add3(1, 2, 3);
+num mx := max(15, 8);
+bool pos1 := isPositive(42);
+bool pos2 := isPositive(-5);
+num fib10 := fib(10);
+num nestedCall := square(square(3));
+num combo1 := max(square(4), add3(1, 2, 3));
+num combo2 := add3(square(2), square(3), square(4));
+num compound := let num price := 100 in let num tax := 25 in price + tax;
+bool complexCond := let num val := 42 in (val > 0) && (val < 100);
+num dummy := 0;

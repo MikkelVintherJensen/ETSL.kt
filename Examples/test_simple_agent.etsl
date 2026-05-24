@@ -1,0 +1,3 @@
+agent SimpleLogger() on () := log();
+
+

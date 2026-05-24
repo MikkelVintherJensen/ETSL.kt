@@ -1,0 +1,2 @@
+event PriceUpdate(num price);
+agent PriceLogger(num price) on (PriceUpdate) := log(price);

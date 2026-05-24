@@ -1,0 +1,1 @@
+".\build_and_run.bat Examples\test_all.etsl" to run the build file, replace "test_all.etsl" with any other test file name to test other.

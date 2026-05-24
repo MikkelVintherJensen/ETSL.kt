@@ -1,0 +1,2 @@
+num function add(num a, num b) := a + b;
+num x := add(true, false);

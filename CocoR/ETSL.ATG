@@ -1,0 +1,223 @@
+COMPILER ETSL
+
+public abstract_syntax.Program program;
+private errors.ErrorCollector errorCollector;
+
+public void setErrorCollector(errors.ErrorCollector collector) {
+    this.errorCollector = collector;
+}
+
+public abstract_syntax.Program getProgram() {
+    return program;
+}
+
+CHARACTERS
+  letter   = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+  digit    = "0123456789".
+  cr       = '\r'.
+  lf       = '\n'.
+  tab      = '\t'.
+  stringCh = ANY - '"' - cr - lf.
+
+TOKENS
+  id     = letter { letter | digit | "_" }.
+  num    = digit { digit } [ "." { digit } ].
+  string = '"' { stringCh } '"'.
+
+IGNORE cr + lf + tab
+
+PRODUCTIONS
+
+ETSL
+= Decls<out program>
+.
+
+Decls<out abstract_syntax.Program prog> (. prog = null; java.util.List<abstract_syntax.Decl> list = new java.util.ArrayList<>(); abstract_syntax.Decl d; .)
+= { Decl<out d> (. if (d != null) list.add(d); .) }
+  (. prog = new abstract_syntax.Program(list); .)
+.
+
+Decl<out abstract_syntax.Decl node> (. node = null; abstract_syntax.Type type = null; int startLine = la.line; int startCol = la.col; .)
+= ( "event"
+    (. String name = ""; java.util.List<abstract_syntax.EventDecl.Param> params = null; .)
+    id (. name = t.val; .)
+    "(" [ EventParamList<out params> ] ")"
+    ";" (. node = new abstract_syntax.EventDecl(name, params != null ? params : new java.util.ArrayList<>()); .)
+  | "agent"
+    (. String name = ""; java.util.List<abstract_syntax.AgentDecl.Param> params = null; java.util.List<String> events = null; abstract_syntax.Action act = null; .)
+    id (. name = t.val; .)
+    "(" [ AgentParamList<out params> ] ")"
+    "on" "(" [ IdList<out events> ] ")"
+    ":=" Action<out act>
+    ";" (. node = new abstract_syntax.AgentDecl(name, params != null ? params : new java.util.ArrayList<>(), events != null ? events : new java.util.ArrayList<>(), act); .)
+  | Type<out type>
+    ( "function"
+      (. String name = ""; java.util.List<abstract_syntax.FuncDecl.Param> params = null; abstract_syntax.Expr body = null; .)
+      id (. name = t.val; .)
+      "(" [ ParamList<out params> ] ")"
+      ":="
+      Exp<out body>
+      ";" (. node = new abstract_syntax.FuncDecl(type, name, params != null ? params : new java.util.ArrayList<>(), body); .)
+    |
+      (. String name = ""; abstract_syntax.Expr value = null; .)
+      id (. name = t.val; .)
+      ":="
+      Exp<out value>
+      ";" (. node = new abstract_syntax.VarDecl(type, name, value); .)
+    )
+  )
+  (. // Error recovery: if no valid declaration was parsed
+     if (node == null && errorCollector != null) {
+         errorCollector.addSyntaxError("Invalid declaration", startLine, startCol, "Expected event, agent, function, or variable declaration");
+         // Skip to next semicolon or declaration start
+         while (la.kind != 0 && la.kind != 26 && la.kind != 4 && la.kind != 14 && la.kind != 15 && la.kind != 16 && la.kind != 17 && la.kind != 18) {
+             Get();
+         }
+         if (la.kind == 26) Get();
+     }
+  .)
+.
+
+ParamList<out java.util.List<abstract_syntax.FuncDecl.Param> list> (. list = new java.util.ArrayList<>(); abstract_syntax.FuncDecl.Param p; .)
+= Param<out p> (. list.add(p); .) 
+  { "," Param<out p> (. list.add(p); .) }
+.
+
+Param<out abstract_syntax.FuncDecl.Param p> (. p = null; abstract_syntax.Type type = null; String name = ""; .)
+= Type<out type> id (. name = t.val; p = new abstract_syntax.FuncDecl.Param(type, name); .)
+.
+
+EventParamList<out java.util.List<abstract_syntax.EventDecl.Param> list> (. list = new java.util.ArrayList<>(); abstract_syntax.EventDecl.Param p; .)
+= EventParam<out p> (. list.add(p); .) 
+  { "," EventParam<out p> (. list.add(p); .) }
+.
+
+EventParam<out abstract_syntax.EventDecl.Param p> (. p = null; abstract_syntax.Type type = null; String name = ""; .)
+= Type<out type> id (. name = t.val; p = new abstract_syntax.EventDecl.Param(type, name); .)
+.
+
+AgentParamList<out java.util.List<abstract_syntax.AgentDecl.Param> list> (. list = new java.util.ArrayList<>(); abstract_syntax.AgentDecl.Param p; .)
+= AgentParam<out p> (. list.add(p); .) 
+  { "," AgentParam<out p> (. list.add(p); .) }
+.
+
+AgentParam<out abstract_syntax.AgentDecl.Param p> (. p = null; abstract_syntax.Type type = null; String name = ""; .)
+= Type<out type> id (. name = t.val; p = new abstract_syntax.AgentDecl.Param(type, name); .)
+.
+
+IdList<out java.util.List<String> list> (. list = new java.util.ArrayList<>(); .)
+= [ id (. list.add(t.val); .) { "," id (. list.add(t.val); .) } ]
+.
+
+Action<out abstract_syntax.Action act> (. act = null; java.util.List<abstract_syntax.Action> actions = new java.util.ArrayList<>(); abstract_syntax.Action a; .)
+= Action1<out a> (. actions.add(a); .)
+  { ";" Action1<out a> (. actions.add(a); .) }
+  (. if (!actions.isEmpty()) {
+         act = actions.get(0);
+         for (int i = 0; i < actions.size() - 1; i++) {
+             abstract_syntax.Action current = actions.get(i);
+             abstract_syntax.Action nextAction = actions.get(i + 1);
+             if (current instanceof abstract_syntax.LogAction) {
+                 ((abstract_syntax.LogAction)current).next = nextAction;
+             } else if (current instanceof abstract_syntax.CallAgentAction) {
+                 ((abstract_syntax.CallAgentAction)current).next = nextAction;
+             } else if (current instanceof abstract_syntax.SkipAction) {
+                 ((abstract_syntax.SkipAction)current).next = nextAction;
+             } else if (current instanceof abstract_syntax.LetAction) {
+                 ((abstract_syntax.LetAction)current).next = nextAction;
+             }
+         }
+     }
+  .)
+.
+
+Action1<out abstract_syntax.Action act> (. act = null; java.util.List<String> vars = null; String name = ""; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Type type = null; abstract_syntax.Expr value = null; abstract_syntax.Action body = null; .)
+= "log" "(" [ IdList<out vars> ] ")" (. act = new abstract_syntax.LogAction(vars != null ? vars : new java.util.ArrayList<>(), null); .)
+| "call" id (. name = t.val; .) "(" [ ExpList<out args> ] ")" (. act = new abstract_syntax.CallAgentAction(name, args != null ? args : new java.util.ArrayList<>(), null); .)
+| "skip" (. act = new abstract_syntax.SkipAction(null); .)
+| "let" Type<out type> id ":=" Exp<out value> "in" Action<out body> (. act = new abstract_syntax.LetAction(type, t.val, value, body, null); .)
+.
+
+ExpList<out java.util.List<abstract_syntax.Expr> list> (. list = new java.util.ArrayList<>(); abstract_syntax.Expr e; .)
+= Exp<out e> (. list.add(e); .) 
+  { "," Exp<out e> (. list.add(e); .) }
+.
+
+Type<out abstract_syntax.Type t> (. t = null; .)
+= "num"    (. t = abstract_syntax.Type.NUM; .) 
+| "bool"   (. t = abstract_syntax.Type.BOOL; .) 
+| "string" (. t = abstract_syntax.Type.STRING; .)
+.
+
+Exp<out abstract_syntax.Expr node> 
+= ExpOr<out node>.
+
+ExpOr<out abstract_syntax.Expr node> (. abstract_syntax.Expr right; .)
+= ExpAnd<out node> 
+  { "||" ExpAnd<out right> (. node = new abstract_syntax.OrExpr(node, right); .) }
+.
+
+ExpAnd<out abstract_syntax.Expr node> (. abstract_syntax.Expr right; .)
+= ExpEq<out node> 
+  { "&&" ExpEq<out right> (. node = new abstract_syntax.AndExpr(node, right); .) }
+.
+
+ExpEq<out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpRel<out node> 
+  { ( "=" | "!=" ) (. op = t.val; .) 
+    ExpRel<out right> (. if (op.equals("=")) node = new abstract_syntax.EqExpr(node, right); else node = new abstract_syntax.NeqExpr(node, right); .) 
+  }
+.
+
+ExpRel<out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpAdd<out node> 
+  { ( "<" | "<=" | ">" | ">=" ) (. op = t.val; .) 
+    ExpAdd<out right> (. if (op.equals("<")) node = new abstract_syntax.LtExpr(node, right);
+                          else if (op.equals("<=")) node = new abstract_syntax.LeExpr(node, right);
+                          else if (op.equals(">")) node = new abstract_syntax.GtExpr(node, right);
+                          else node = new abstract_syntax.GeExpr(node, right); .) 
+  }
+.
+
+ExpAdd<out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpMul<out node> 
+  { ( "+" | "-" ) (. op = t.val; .) 
+    ExpMul<out right> (. if (op.equals("+")) node = new abstract_syntax.AddExpr(node, right); else node = new abstract_syntax.SubExpr(node, right); .) 
+  }
+.
+
+ExpMul<out abstract_syntax.Expr node> (. abstract_syntax.Expr right; String op; .)
+= ExpUnary<out node> 
+  { ( "*" | "/" ) (. op = t.val; .) 
+    ExpUnary<out right> (. if (op.equals("*")) node = new abstract_syntax.MulExpr(node, right); else node = new abstract_syntax.DivExpr(node, right); .) 
+  }
+.
+
+ExpUnary<out abstract_syntax.Expr node> (. node = null; .)
+= "!" ExpUnary<out node> (. node = new abstract_syntax.NegExpr(node); .) 
+| "-" ExpUnary<out node> (. node = new abstract_syntax.SubExpr(new abstract_syntax.NumExpr(0), node); .)
+| Term<out node>
+.
+
+Term<out abstract_syntax.Expr node> (. node = null; String name; java.util.List<abstract_syntax.Expr> args = null; abstract_syntax.Expr arg; abstract_syntax.Type letType = null; String letName = ""; abstract_syntax.Expr letVal; abstract_syntax.Expr cond; abstract_syntax.Expr thenExpr; .)
+= num    (. if (t.val.contains(".")) node = new abstract_syntax.NumExpr(Integer.parseInt(t.val.split("\\.")[0])); else node = new abstract_syntax.NumExpr(Integer.parseInt(t.val)); .)
+| "true" (. node = new abstract_syntax.BoolExpr(true); .)
+| "false"(. node = new abstract_syntax.BoolExpr(false); .)
+| string (. String s = t.val; node = new abstract_syntax.StringExpr(s.substring(1, s.length() - 1)); .)
+| id     (. name = t.val; .)
+  ( "(" 
+    (. args = new java.util.ArrayList<>(); .)
+    [ Exp<out arg> (. args.add(arg); .) 
+      { "," Exp<out arg> (. args.add(arg); .) } 
+    ] 
+    ")" (. node = new abstract_syntax.CallExpr(name, args); .)
+  |       (. node = new abstract_syntax.VarExpr(name); .)
+  )
+| "(" Exp<out node> ")"
+| "if" Exp<out cond> "then" Exp<out thenExpr> "else" Exp<out node>
+          (. node = new abstract_syntax.IfExpr(cond, thenExpr, node); .)
+| "let" Type<out letType> id (. letName = t.val; .) ":=" Exp<out letVal> "in" Exp<out node>
+          (. node = new abstract_syntax.LetExpr(letType, letName, letVal, node); .)
+.
+
+END ETSL.

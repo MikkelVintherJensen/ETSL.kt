@@ -1,0 +1,14 @@
+num function square(num x) := x * x;
+num function add3(num a, num b, num c) := a + b + c;
+num function max(num a, num b) := if a > b then a else b;
+bool function isPositive(num x) := x > 0;
+num function fib(num n) := if n <= 1 then n else fib(n - 1) + fib(n - 2);
+num sq := square(7);
+num sum3 := add3(1, 2, 3);
+num mx := max(15, 8);
+bool pos1 := isPositive(42);
+bool pos2 := isPositive(-5);
+num fib10 := fib(10);
+num nestedCall := square(square(3));
+num combo1 := max(square(4), add3(1, 2, 3));
+num combo2 := add3(square(2), square(3), square(4));
