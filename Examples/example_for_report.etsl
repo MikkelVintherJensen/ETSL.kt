@@ -1,0 +1,39 @@
+event ForecastUpdateWind(
+    num windForecast,
+    num updatedWindForecast,
+    num price,
+    num portfolio,
+    num consumptionForecast
+);
+
+
+agent IDAAuctionStrategy(
+    num windForecast,
+    num updatedWindForecast,
+    num price,
+    num portfolio,
+    num consumptionForecast
+) on (ForecastUpdateWind) :=
+    let num changeWindForecastPercent :=
+        devPercent(windForecast, updatedWindForecast)
+    in
+        let string action :=
+            if (changeWindForecastPercent > 5 && ((consumptionForecast - portfolio) > 0))
+            then "trade"
+            else "no trade"
+        in
+            let num amount :=
+                if (action = "trade")
+                then consumptionForecast - portfolio
+                else 0.0
+            in
+                log(changeWindForecastPercent, action, amount);
+                call evalTrade(action, amount);
+
+agent evalTrade(string action, num amount) on () :=
+    let string eval := "evalResult" 
+        in
+            log(eval, action, amount);
+
+num function devPercent(num x, num y) :=
+    ((x - y) / x * 100);
