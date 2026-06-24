@@ -1,0 +1,16 @@
+event PriceUpdate(num price);
+num threshold := 100.0;
+
+bool function isAlert(num p, num threshold) :=
+  p > threshold;
+
+agent Monitor(num price)
+  on (PriceUpdate)
+  :=
+  let bool alert :=
+    isAlert(price, threshold) in
+  let string status :=
+    if alert
+    then "ALERT: price above threshold"
+    else "OK: price normal" in
+  log(price, threshold, status);
